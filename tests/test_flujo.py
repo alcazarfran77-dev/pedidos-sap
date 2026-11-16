@@ -181,6 +181,7 @@ with cliente_http() as v:
     ok(r["KUNNR"] == "100040" and r["posiciones"][0]["WERKS"] != "4000", "captura a nombre de otro cliente -> queda en el suyo; no elige almacén")
     ok(r["posiciones"][0]["precio"] == 18.9, "no recibe el precio especial de otro cliente")
     m = v.post("/api/importar", json={"tipo": "pedidos", "nombre": "p.csv", "texto": "cliente,pedido_cliente,material,cantidad\n100010,ARCH-1,10000550,10"})
+    ok(v.post("/api/importar", json={"tipo": "pedidos", "nombre": "q.csv", "texto": "pedido_cliente,material,cantidad\nSIN-CLIENTE-1,10000550,4"}).status_code == 200, "archivo del cliente sin columna de cliente -> se toma de su usuario")
     ok(m.status_code == 200 and all(p["KUNNR"] == "100040" for p in v.get("/api/estado").json()["pedidos"]), "archivo con otro cliente -> pedidos a su nombre")
     for metodo, ruta, cuerpo in [("post", "/api/importar", {"tipo": "precios", "nombre": "x.json", "texto": "[]"}), ("put", "/api/config", {}), ("post", "/api/sync/estatus", None),
                                  ("post", "/api/demo", None), ("get", "/api/usuarios", None), ("put", "/api/usuarios", {"usuario": "valle", "rol": "admin"})]:
@@ -226,6 +227,97 @@ with cliente_http() as c:
     ok(c.post("/api/sync/estatus").status_code == 400 and c.get(f"/api/pedidos/{nuevo['id']}/json").json()["BSTKD"] == "SIN-SFTP-1", "sin SFTP: la API rechaza leer y entrega el JSON para descargar")
 del os.environ["SFTP_HABILITADO"]
 ok(sv.cargar_demo_si_vacio() is False, "CARGAR_DEMO no toca una base con datos")
+
+# 10) API v1 para sistemas de clientes
+import csv as _csv, io as _io
+V1 = "/api/v1"
+with cliente_http() as c:
+    entrar(c, "fran", "clave-larga-1")
+    ok(c.put("/api/usuarios", json={"nuevo": True, "usuario": "pacific", "nombre": "Pacific Coast IT", "rol": "cliente", "KUNNR": "100030", "password": "pacific-12345"}).status_code == 200, "alta del usuario cliente pacific (100030)")
+    llave_admin = c.post("/api/llaves", json={"nombre": "ERP interno"}).json()["llave"]
+with cliente_http() as w:
+    entrar(w, "pacific", "pacific-12345")
+    nueva = w.post("/api/llaves", json={"nombre": "ERP Pacific"}).json()
+    llave = nueva["llave"]
+    ok(llave.startswith("psap_") and len(llave) > 40, "el cliente genera su llave de API")
+    ok(all("llave" not in x and x["prefijo"] == llave[:12] for x in w.get("/api/llaves").json()), "la llave completa solo se muestra al crearla")
+    ok(w.get(V1 + "/orders").status_code == 200, "con la sesión abierta se puede consultar desde el navegador")
+    ok(w.post(V1 + "/orders", json={"customer": "100030", "material": "10000550", "quantity": 1}).status_code == 401, "crear pedidos exige llave aunque haya sesión")
+
+api = TestClient(app)  # sin encabezado X-App: así llama un sistema externo
+HK = {"Authorization": "Bearer " + llave}
+ok(api.get(V1 + "/orders").status_code == 401 and "error" in api.get(V1 + "/orders").json(), "sin llave -> 401 con mensaje")
+ok(api.get(V1 + "/orders", headers={"Authorization": "Bearer psap_falsa"}).status_code == 401, "llave inválida -> 401")
+ok(api.get(V1 + "/me", headers={"X-API-Key": llave}).json()["customer"] == "100030", "también acepta X-API-Key; la llave hereda el cliente del usuario")
+
+pedido = {"customer": "100010", "customer_po": "PCB-API-001", "delivery_address": "845 Douglas St, Victoria, BC V8W 2B6",
+          "items": [{"material": "10000550", "quantity": 100}, {"material": "10000675", "quantity": 10}]}
+r = api.post(V1 + "/orders", json=pedido, headers=HK)
+o = r.json()["orders"][0]
+ok(r.status_code == 201 and o["customer"] == "100030" and o["status"] == "BORRADOR", "JSON del cliente -> pedido creado a su nombre (ignora otro número de cliente)")
+ok(o["items"][0]["warehouse"] == "4000" and o["items"][0]["price"] == 14.2 and o["items"][0]["amount"] == 1420.0 and o["items"][0]["planned_delivery"], "salida: almacén, precio, importe y fecha planificada")
+ok(o["order_id"].startswith("PED-") and "API (pacific)" in o["source"], "origen registrado como API del usuario")
+r = api.post(V1 + "/orders", json=pedido, headers=HK)
+ok(r.status_code == 409 and r.json()["existing_orders"] == [o["order_id"]], "reintento con el mismo pedido del cliente -> 409 sin duplicar")
+ok(api.post(V1 + "/orders?allow_duplicate=true", json=pedido, headers=HK).status_code == 201, "allow_duplicate=true lo crea de todos modos")
+
+csv_txt = "customer,customer_po,material,quantity,delivery_address\r\n100030,PCB-API-002,10000310,40,100031\r\n100030,PCB-API-002,10000311,12,100031\r\n"
+r = api.post(V1 + "/orders?send=true&format=csv", content=csv_txt, headers={**HK, "Content-Type": "text/csv"})
+filas = list(_csv.DictReader(_io.StringIO(r.text)))
+ok(r.status_code == 201 and r.headers["content-type"].startswith("text/csv") and len(filas) == 2, "CSV del cliente -> respuesta CSV con una fila por posición")
+ok(all(f["status"] == "ENVIADO_SAP" and f["warehouse"] and f["price"] and f["planned_delivery"] for f in filas), "send=true lo envía a SAP")
+ok(any(n.startswith("PEDIDO_" + filas[0]["order_id"]) for n in os.listdir(RAIZ / "salida/pedidos")), "el JSON para SAP quedó en el SFTP")
+
+r = api.post(V1 + "/orders", files={"file": ("pedido_erp.json", json.dumps({**pedido, "customer_po": "PCB-API-003"}), "application/json")}, headers=HK)
+ok(r.status_code == 201 and r.json()["orders"][0]["customer_po"] == "PCB-API-003", "acepta el archivo como carga multipart (campo file)")
+r = api.post(V1 + "/orders?send=true", json={"customer_po": "PCB-API-004", "items": [{"material": "NO-EXISTE", "quantity": 5}]}, headers=HK)
+ok(r.status_code == 201 and r.json()["with_errors"] == 1 and r.json()["orders"][0]["status"] == "BORRADOR" and "not found" in r.json()["orders"][0]["items"][0]["errors"][0], "pedido con errores queda en borrador con el error explicado")
+borrador = r.json()["orders"][0]["order_id"]
+ok(api.post(V1 + "/orders", content="", headers={**HK, "Content-Type": "application/json"}).status_code == 400, "cuerpo vacío -> 400")
+ok("vacío" in api.post(V1 + "/orders?lang=es", content="", headers={**HK, "Content-Type": "application/json"}).json()["error"], "lang=es -> mensajes en español")
+
+antes = len(sv.estado()["pedidos"])
+r = api.post(V1 + "/orders/preview", json={**pedido, "customer_po": "COTIZA-1"}, headers=HK)
+ok(r.status_code == 200 and r.json()["orders"][0]["order_id"] is None and len(sv.estado()["pedidos"]) == antes, "cotización sin guardar")
+
+lista = api.get(V1 + "/orders", headers=HK).json()
+ok(lista["count"] >= 5 and {x["customer"] for x in lista["orders"]} == {"100030"}, "listado: solo pedidos de su cliente")
+ok(all(x["status"] == "ENVIADO_SAP" for x in api.get(V1 + "/orders?status=ENVIADO_SAP", headers=HK).json()["orders"]), "filtro por estatus")
+ok(api.get(V1 + "/orders?since=2099-01-01", headers=HK).json()["count"] == 0, "filtro since (solo cambios recientes)")
+txt = api.get(V1 + "/orders", headers={**HK, "Accept": "text/csv"}).text
+ok(txt.splitlines()[0].startswith("order_id,customer,customer_po,status"), "Accept: text/csv -> listado en CSV")
+env_hist = api.get(V1 + "/orders/" + filas[0]["order_id"], headers=HK).json()["history"][-1]["text"]
+ok(env_hist == "Order sent to SAP", "el historial que ve el cliente no muestra rutas internas del SFTP")
+ajeno = next(x["id"] for x in sv.estado()["pedidos"] if x["KUNNR"] == "100040")
+ok(api.get(V1 + "/orders/" + ajeno, headers=HK).status_code == 404 and api.post(V1 + f"/orders/{ajeno}/send", headers=HK).status_code == 404, "pedido de otro cliente -> 404")
+ok(api.post(V1 + f"/orders/{borrador}/send", headers=HK).status_code == 400, "no deja enviar un borrador con errores")
+otro = api.post(V1 + "/orders", json={**pedido, "customer_po": "PCB-API-005"}, headers=HK).json()["orders"][0]["order_id"]
+ok(api.post(V1 + f"/orders/{otro}/send", headers=HK).json()["status"] == "ENVIADO_SAP", "envío a SAP de un borrador por API")
+ok(api.get(V1 + f"/orders/{otro}?format=csv", headers=HK).text.count("\r\n") == 3, "detalle en CSV")
+
+mats = api.get(V1 + "/materials?customer=100040", headers=HK).json()["materials"]
+m101 = next(m for m in mats if m["material"] == "10000101")
+ok(m101["price"] == 185.5 and set(m101["available_by_warehouse"]) == {"1000", "2000", "3000", "4000"}, "materiales: precio de su lista (no el especial de otro cliente) y disponible por almacén")
+ok(api.get(V1 + "/materials?format=csv", headers=HK).text.startswith("material,description,uom,price,currency,available,available_1000"), "materiales en CSV")
+HA = {"Authorization": "Bearer " + llave_admin}
+ok(next(m for m in api.get(V1 + "/materials?customer=100040", headers=HA).json()["materials"] if m["material"] == "10000101")["price"] == 171.0, "usuario interno consulta el precio especial de un cliente")
+ok(len({x["customer"] for x in api.get(V1 + "/orders", headers=HA).json()["orders"]}) > 1, "llave de administrador ve todos los clientes")
+
+ok(api.get(V1 + "/docs").status_code == 200 and "/orders" in api.get(V1 + "/openapi.json").json()["paths"] and "/api/estado" not in api.get(V1 + "/openapi.json").text, "documentación interactiva solo con la API pública")
+with cliente_http() as w:
+    entrar(w, "pacific", "pacific-12345")
+    for i in range(4): w.post("/api/llaves", json={"nombre": f"extra {i}"})
+    ok(w.post("/api/llaves", json={}).status_code == 400, "máximo 5 llaves por usuario")
+    w.delete(f"/api/llaves/{nueva['id']}")
+    ok(api.get(V1 + "/me", headers=HK).status_code == 401, "llave revocada deja de funcionar")
+    otra = w.get("/api/llaves").json()[0]
+ok(len([u for u in sv.listar_usuarios() if u["usuario"] == "pacific" and u["llaves"] == 4]) == 1, "el administrador ve cuántas llaves tiene cada usuario")
+with cliente_http() as c:
+    entrar(c, "fran", "clave-larga-1")
+    c.put("/api/usuarios", json={"usuario": "pacific", "nombre": "Pacific Coast IT", "rol": "cliente", "KUNNR": "100030", "activo": False})
+    ok(sv.usuario_por_llave("psap_x") is None and all(sv.usuario_por_llave(k) is None for k in [llave]), "usuario desactivado: sus llaves no sirven")
+    c.delete("/api/usuarios/pacific/llaves")
+    ok(sv.listar_usuarios() and next(u for u in sv.listar_usuarios() if u["usuario"] == "pacific")["llaves"] == 0, "el administrador revoca todas las llaves de un usuario")
 
 print("\nTODAS LAS PRUEBAS PASARON")
 shutil.rmtree(TMP, ignore_errors=True)

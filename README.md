@@ -65,6 +65,32 @@ El primer administrador sale de `APP_USER` / `APP_PASSWORD` (obligatorio en Rend
 variables, de la pantalla de primer arranque. Contraseñas guardadas con scrypt; sesión de 12 horas en cookie HttpOnly;
 bloqueo de 5 minutos tras 5 intentos fallidos. La versión sin servidor no tiene usuarios.
 
+## API para sistemas de clientes (versión con servidor)
+
+El sistema local de cada cliente genera su archivo JSON o CSV y lo envía a la API; la API lo valida, crea los pedidos y
+devuelve la salida (almacén, precio, importe, fecha planificada) en JSON o CSV. Después el sistema puede consultar el
+estatus de sus pedidos.
+
+- **Dirección**: `https://<servidor>/api/v1` · documentación interactiva en `/api/v1/docs`.
+- **Llaves**: cada usuario genera las suyas en la pantalla **API** (máximo 5). Se envían como
+  `Authorization: Bearer <llave>` (o `X-API-Key`). La llave completa solo se muestra al crearla; en la base queda su
+  huella SHA-256. Una llave hereda los permisos de su usuario: la de un Cliente solo ve y crea pedidos de su número de
+  cliente, aunque el archivo diga otro. Si el usuario se desactiva o se elimina, sus llaves dejan de funcionar; el
+  administrador puede revocarlas desde **Usuarios**.
+
+| Método y ruta | Uso |
+|---|---|
+| `POST /orders` | Recibe el archivo (JSON o CSV en el cuerpo, o multipart en el campo `file`) y crea los pedidos. `send=true` los envía a SAP si no tienen errores. Un pedido del cliente repetido responde 409 (`allow_duplicate=true` lo permite) |
+| `POST /orders/preview` | Igual, sin guardar: cotiza almacén, precio, importe y fecha |
+| `GET /orders` | Pedidos y estatus. Filtros `status`, `customer_po`, `since` (creados o actualizados desde) |
+| `GET /orders/{id}` | Salida e historial de un pedido |
+| `POST /orders/{id}/send` | Envía a SAP un borrador |
+| `GET /materials` | Precio vigente para el cliente y disponible por almacén |
+| `GET /me` | Usuario y cliente de la llave |
+
+Todas las respuestas admiten `format=csv` (una fila por posición) y `lang=es`. El programa `ejemplos/cliente_api.py`
+(solo biblioteca estándar de Python) muestra cómo enviar un archivo y descargar el estatus desde el sistema del cliente.
+
 ## Carpetas en el SFTP (configurables)
 
 | Ruta | Sentido | Contenido | Lectura por defecto |

@@ -11,6 +11,7 @@ from pathlib import Path
 
 SHARED = json.loads((Path(__file__).parent / "shared.json").read_text("utf-8"))
 ESQ, CP, CP_CA, NUM, REQ = SHARED["esquema"], SHARED["cp"], SHARED["cp_ca"], set(SHARED["numericos"]), SHARED["requeridos"]
+MENSAJES, ESTATUS_NOMBRES = SHARED["mensajes"], SHARED["estatus_nombres"]
 MAESTROS = ["clientes", "inventario", "precios", "xref", "almacenes"]
 TIPOS = MAESTROS + ["estatus", "pedidos"]
 ABIERTOS = ("BORRADOR", "ENVIADO_SAP")  # pedidos cuyo consumo aún no refleja el inventario de SAP
@@ -81,7 +82,7 @@ def leer_texto(nombre, texto):
         d = json.loads(texto)
         if isinstance(d, dict):
             listas = [v for v in d.values() if isinstance(v, list) and v and isinstance(v[0], dict)]
-            con_pos = any(_clave(k) in ("posiciones", "items", "partidas", "lineas") for k in d)
+            con_pos = any(_clave(k) in ("posiciones", "items", "partidas", "lineas", "lines") for k in d)
             d = [d] if con_pos or not listas else listas[0]
         return [x for x in d if isinstance(x, dict)]
     cab = texto.splitlines()[0]
@@ -98,7 +99,7 @@ def normalizar(tipo, filas):
     if tipo == "pedidos":  # pedidos anidados -> filas planas
         planas = []
         for f in filas:
-            pos = next((v for k, v in f.items() if _clave(k) in ("posiciones", "items", "partidas", "lineas")), None)
+            pos = next((v for k, v in f.items() if _clave(k) in ("posiciones", "items", "partidas", "lineas", "lines")), None)
             if isinstance(pos, list):
                 cab = {k: v for k, v in f.items() if not isinstance(v, (list, dict))}
                 planas += [dict(cab, **p) for p in pos if isinstance(p, dict)]
@@ -399,3 +400,94 @@ def aplicar_estatus(st, filas, fuente="SAP"):
             o["VBELN"] = f["VBELN"]
         n += 1
     return n, sin
+
+
+# ---------- salida para la API (sistemas de los clientes) ----------
+def texto(m, lang="en"):
+    """Convierte un mensaje "@codigo␟params" al idioma pedido (en / es). Un texto normal se devuelve igual."""
+    m = str(m if m is not None else "")
+    if not m.startswith("@"):
+        return m
+    partes = m[1:].split("\x1f")
+    d = MENSAJES.get(partes.pop(0))
+    if not d:
+        return m
+    tpl = d[0 if lang == "es" else 1]
+    n = len(re.findall(r"\{\d\}", tpl))
+    if n and len(partes) > n:
+        partes = partes[:n - 1] + ["\x1f".join(partes[n - 1:])]
+    return re.sub(r"\{(\d)\}", lambda g: texto(partes[int(g.group(1))] if int(g.group(1)) < len(partes) else "", lang), tpl)
+
+
+def nombre_estatus(e, lang="en"):
+    n = ESTATUS_NOMBRES.get(e)
+    return n[0 if lang == "es" else 1] if n else e.replace("_", " ").capitalize()
+
+
+def pedido_api(p, lang="en"):
+    d = p.get("direccion") or {}
+    tx = lambda xs: [texto(x, lang) for x in xs]
+    return {
+        "order_id": p["id"] or None, "customer": p["KUNNR"], "customer_name": p["NAME1"], "customer_po": p["BSTKD"],
+        "status": p["estatus"], "status_text": nombre_estatus(p["estatus"], lang), "sap_order": p["VBELN"] or None,
+        "created_at": p["fecha"], "source": texto(p["origen"], lang),
+        "ship_to": {"id": d.get("KUNWE") or None, "address": d.get("texto", ""), "city": d.get("ciudad", ""), "postal_code": d.get("PSTLZ", "")},
+        "currency": p["moneda"], "total": p["total"], "has_errors": tiene_errores(p),
+        "errors": tx(p["errores"]), "warnings": tx(p["avisos"]),
+        "items": [{"item": x["POSNR"], "material": x["MATNR"] or None, "material_received": x["material_entrada"], "description": x["MAKTX"],
+                   "quantity": x["cantidad"], "uom": x["MEINS"], "price": x["precio"], "amount": x["importe"],
+                   "warehouse": x["WERKS"] or None, "warehouse_name": x["almacen"], "planned_delivery": x["EDATU"] or None,
+                   "errors": tx(x["errores"]), "warnings": tx(x["avisos"])} for x in p["posiciones"]],
+        "history": [{"date": h["fecha"], "status": h["estatus"], "status_text": nombre_estatus(h["estatus"], lang), "text": texto(h["texto"], lang)}
+                    for h in p["historial"]],
+    }
+
+
+COLUMNAS_CSV = ["order_id", "customer", "customer_po", "status", "status_text", "sap_order", "created_at", "ship_to_id", "ship_to_postal_code",
+                "item", "material", "material_received", "description", "quantity", "uom", "price", "amount", "currency",
+                "warehouse", "warehouse_name", "planned_delivery", "order_total", "errors", "warnings"]
+
+
+def csv_pedidos(pedidos_api):
+    """Una fila por posición: lo que el sistema del cliente necesita para registrar la respuesta."""
+    f = io.StringIO()
+    w = csv.DictWriter(f, fieldnames=COLUMNAS_CSV, lineterminator="\r\n")
+    w.writeheader()
+    for o in pedidos_api:
+        base = {"order_id": o["order_id"] or "", "customer": o["customer"], "customer_po": o["customer_po"], "status": o["status"],
+                "status_text": o["status_text"], "sap_order": o["sap_order"] or "", "created_at": o["created_at"],
+                "ship_to_id": o["ship_to"]["id"] or "", "ship_to_postal_code": o["ship_to"]["postal_code"], "currency": o["currency"],
+                "order_total": o["total"]}
+        for x in o["items"] or [{}]:
+            w.writerow(dict(base, item=x.get("item", ""), material=x.get("material") or "", material_received=x.get("material_received", ""),
+                            description=x.get("description", ""), quantity=x.get("quantity", ""), uom=x.get("uom", ""),
+                            price="" if x.get("price") is None else x["price"], amount="" if x.get("amount") is None else x["amount"],
+                            warehouse=x.get("warehouse") or "", warehouse_name=x.get("warehouse_name", ""), planned_delivery=x.get("planned_delivery") or "",
+                            errors="; ".join(o["errors"] + x.get("errors", [])), warnings="; ".join(o["warnings"] + x.get("warnings", []))))
+    return f.getvalue()
+
+
+def materiales_api(st, kunnr, hoy=None):
+    """Catálogo con precio vigente para el cliente y disponible por almacén (existencia menos pedidos abiertos)."""
+    hoy = hoy or dt.date.today()
+    out = []
+    for m, v in sorted(catalogo(st).items()):
+        pr = buscar_precio(st, m, kunnr, hoy)
+        disp = {}
+        for a in st["almacenes"]:
+            ex = sum(r["LABST"] or 0 for r in st["inventario"] if r["MATNR"] == m and r["WERKS"] == a["WERKS"])
+            disp[a["WERKS"]] = ex - comprometido(st, m, a["WERKS"])
+        out.append({"material": m, "description": v["MAKTX"], "uom": v["MEINS"], "price": pr["KBETR"] if pr else None,
+                    "currency": (pr or {}).get("KONWA") or st["config"]["moneda"], "available": sum(disp.values()), "available_by_warehouse": disp})
+    return out
+
+
+def csv_materiales(mats):
+    alms = sorted({w for m in mats for w in m["available_by_warehouse"]})
+    f = io.StringIO()
+    w = csv.writer(f, lineterminator="\r\n")
+    w.writerow(["material", "description", "uom", "price", "currency", "available"] + [f"available_{a}" for a in alms])
+    for m in mats:
+        w.writerow([m["material"], m["description"], m["uom"], "" if m["price"] is None else m["price"], m["currency"], m["available"]]
+                   + [m["available_by_warehouse"].get(a, "") for a in alms])
+    return f.getvalue()

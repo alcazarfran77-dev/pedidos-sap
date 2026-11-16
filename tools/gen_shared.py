@@ -232,7 +232,12 @@ pedidos_demo = [
  {"KUNNR":"100030","BSTKD":"PC-88214","DIRECCION":"845 Douglas St, Victoria, BC V8W 2B6","posiciones":[{"MATERIAL":"10000550","CANTIDAD":900},{"MATERIAL":"10000675","CANTIDAD":40}]},
  {"KUNNR":"100050","BSTKD":"MTF-11207","DIRECCION":"","posiciones":[{"MATERIAL":"10000420","CANTIDAD":250}]},
 ]
-out = {"cp": cp, "cp_ca": cp_ca, "esquema": esquema, "numericos": numericos, "requeridos": requeridos, "estatus_flujo": estatus_flujo,
+# Nombres de estatus [español, inglés] y mensajes traducibles (fuente: app/mensajes.json)
+estatus_nombres = {"BORRADOR": ["Borrador", "Draft"], "ENVIADO_SAP": ["Enviado a SAP", "Sent to SAP"], "CREADO": ["Creado en SAP", "Created in SAP"],
+                   "EN_SURTIDO": ["En surtido", "Picking"], "EMBARCADO": ["Embarcado", "Shipped"], "ENTREGADO": ["Entregado", "Delivered"],
+                   "FACTURADO": ["Facturado", "Invoiced"], "RECHAZADO": ["Rechazado", "Rejected"], "BLOQUEADO": ["Bloqueado", "Blocked"], "CANCELADO": ["Cancelado", "Cancelled"]}
+mensajes = json.loads((R / "app" / "mensajes.json").read_text("utf-8"))
+out = {"mensajes": mensajes, "estatus_nombres": estatus_nombres, "cp": cp, "cp_ca": cp_ca, "esquema": esquema, "numericos": numericos, "requeridos": requeridos, "estatus_flujo": estatus_flujo,
        "demo": {"clientes": clientes, "almacenes": almacenes, "inventario": inventario, "precios": precios, "xref": xref, "pedidos": pedidos_demo}}
 (R / "app" / "shared.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), "utf-8")
 # archivos de ejemplo

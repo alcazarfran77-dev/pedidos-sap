@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS archivos(ruta TEXT, firma TEXT, PRIMARY KEY(ruta,firm
 CREATE TABLE IF NOT EXISTS usuarios(usuario TEXT PRIMARY KEY, nombre TEXT, rol TEXT NOT NULL CHECK(rol IN ('admin','ventas','cliente')),
   KUNNR TEXT NOT NULL DEFAULT '', hash TEXT NOT NULL, sal TEXT NOT NULL, activo INTEGER NOT NULL DEFAULT 1,
   CHECK(rol <> 'cliente' OR KUNNR <> ''));
+CREATE TABLE IF NOT EXISTS api_llaves(id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT NOT NULL, nombre TEXT, prefijo TEXT NOT NULL,
+  hash TEXT NOT NULL UNIQUE, creada TEXT NOT NULL, ultimo_uso TEXT);
 CREATE TABLE IF NOT EXISTS sesiones(token TEXT PRIMARY KEY, usuario TEXT NOT NULL, expira REAL NOT NULL);
 """
 CAB = ["id", "BSTKD", "KUNNR", "NAME1", "estatus", "VBELN", "fecha", "origen", "moneda", "total", "archivo_sap"]

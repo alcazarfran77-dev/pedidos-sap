@@ -24,6 +24,8 @@ No subas nunca `pedidos.db`, llaves privadas ni contraseñas: `.gitignore` ya lo
 4. Entra con el administrador. La aplicación arranca con los datos de ejemplo de Canadá (`CARGAR_DEMO=1`). Para usar tus
    datos, carga los archivos de SAP en **Intercambio con SAP** (formatos en **Formatos de archivo**).
 5. En **Usuarios** crea un usuario con perfil Cliente por cada cliente que vaya a probar.
+6. Para probar la API, entra con el usuario cliente, ve a **API** y genera una llave. La dirección y los ejemplos
+   aparecen en esa misma pantalla; la documentación interactiva está en `https://pedidos-sap-xxxx.onrender.com/api/v1/docs`.
 
 Cada cambio que subas a GitHub se despliega solo.
 
@@ -38,9 +40,11 @@ Cada cambio que subas a GitHub se despliega solo.
 
 - **Se duerme**: tras 15 minutos sin visitas el servicio se suspende; la siguiente visita tarda cerca de un minuto.
 - **Sin disco**: la base SQLite se borra en cada suspensión, reinicio o despliegue. Se pierden los pedidos, los usuarios
-  creados en la aplicación y los datos cargados a mano. Solo se conserva el administrador de `APP_USER` / `APP_PASSWORD`, y
+  creados en la aplicación, sus llaves de API y los datos cargados a mano. Solo se conserva el administrador de `APP_USER` / `APP_PASSWORD`, y
   con `CARGAR_DEMO=1` vuelven los datos de ejemplo.
 - **Uso adecuado**: demostraciones y pruebas de flujo en una sola sesión. No para pedidos reales.
+- **API**: la primera llamada después de que el servicio se durmió tarda cerca de un minuto (el programa de ejemplo
+  espera hasta dos minutos). Una llave generada deja de existir cuando la base se reinicia: genera otra.
 
 ## 4. Pasar a producción con SFTP
 

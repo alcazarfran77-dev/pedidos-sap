@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
-from . import core, servicio as sv
+from . import api_v1, core, servicio as sv
 
 ESTATICO = Path(__file__).resolve().parent.parent / "static"
 GALLETA = "sesion"
@@ -34,7 +34,9 @@ async def guardia(request, call_next):
         if os.environ.get("RENDER") and not sv.admin_entorno():
             return PlainTextResponse("Set APP_USER and APP_PASSWORD in the service environment variables.", 503)
         # Las operaciones que cambian datos deben venir de la propia interfaz (evita envíos desde otros sitios).
-        if request.method not in ("GET", "HEAD") and request.headers.get("x-app") != "pedidos-sap":
+        # La API v1 queda fuera de esta regla: exige llave de API, que el navegador nunca envía por su cuenta.
+        if (request.method not in ("GET", "HEAD") and request.headers.get("x-app") != "pedidos-sap"
+                and not request.url.path.startswith("/api/v1/")):
             return PlainTextResponse("Request not allowed", 403)
     return await call_next(request)
 
@@ -203,3 +205,29 @@ def guardar_usuario(b: dict = Body(...), u=Depends(admin)):
 def borrar_usuario(nombre: str, u=Depends(admin)):
     _seguro(sv.borrar_usuario, nombre, u)
     return {"ok": True}
+
+
+@app.delete("/api/usuarios/{nombre}/llaves")
+def revocar_llaves_usuario(nombre: str, u=Depends(admin)):
+    sv.revocar_llaves_de(nombre)
+    return {"ok": True}
+
+
+# ---------- llaves de API de cada usuario (desde la interfaz) ----------
+@app.get("/api/llaves")
+def mis_llaves(u=Depends(usuario)):
+    return sv.listar_llaves(u)
+
+
+@app.post("/api/llaves")
+def nueva_llave(b: dict = Body(default={}), u=Depends(usuario)):
+    return _seguro(sv.crear_llave, u, b.get("nombre", ""))
+
+
+@app.delete("/api/llaves/{llave_id}")
+def borrar_llave(llave_id: int, u=Depends(usuario)):
+    _seguro(sv.revocar_llave, u, llave_id)
+    return {"ok": True}
+
+
+app.mount("/api/v1", api_v1.api)

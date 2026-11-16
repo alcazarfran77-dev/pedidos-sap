@@ -137,7 +137,7 @@ def importar(tipo, nombre, texto, fuente="o_manual", tr=None, u=None):
         raise ValueError(core.M("e_tipo"))
     with CANDADO:
         st = db.cargar(con())
-        filas = core.normalizar(tipo, core.leer_texto(nombre, texto))
+        filas = core.normalizar(tipo, _con_cliente(core.leer_texto(nombre, texto), u) if tipo == "pedidos" else core.leer_texto(nombre, texto))
         if es_cliente(u):
             for f in filas:
                 f["KUNNR"], f["WERKS"] = u["KUNNR"], ""
@@ -391,6 +391,9 @@ def listar_usuarios():
         env = admin_entorno()
         if env:
             us.insert(0, {"usuario": env[0], "nombre": "Administrator", "rol": "admin", "KUNNR": "", "activo": True, "fijo": True})
+        n = dict(con().execute("SELECT usuario, COUNT(*) FROM api_llaves GROUP BY usuario").fetchall())
+        for x in us:
+            x["llaves"] = n.get(x["usuario"], 0)
         return us
 
 
@@ -434,6 +437,7 @@ def borrar_usuario(usuario, actor):
     with CANDADO:
         con().execute("DELETE FROM usuarios WHERE usuario=?", (usuario,))
         con().execute("DELETE FROM sesiones WHERE usuario=?", (usuario,))
+        con().execute("DELETE FROM api_llaves WHERE usuario=?", (usuario,))
         con().commit()
 
 
@@ -443,3 +447,166 @@ def instalar(d):
         if hay_admin() or os.environ.get("RENDER"):
             raise PermissionError(core.M("e_ya_admin"))
         guardar_usuario({**d, "rol": "admin", "activo": True, "nuevo": True})
+
+
+# ---------- llaves de API (sistemas de los clientes) ----------
+MAX_LLAVES = 5
+
+
+class Duplicado(Exception):
+    """El pedido del cliente ya existe; la API responde 409 para que un reintento no lo duplique."""
+    def __init__(self, mensaje, existentes):
+        super().__init__(mensaje)
+        self.existentes = existentes
+
+
+def _hash_llave(llave):
+    return hashlib.sha256(llave.encode("utf-8")).hexdigest()
+
+
+def crear_llave(u, nombre=""):
+    with CANDADO:
+        n = con().execute("SELECT COUNT(*) FROM api_llaves WHERE usuario=?", (u["usuario"],)).fetchone()[0]
+        if n >= MAX_LLAVES:
+            raise ValueError(core.M("e_max_llaves", MAX_LLAVES))
+        llave = "psap_" + secrets.token_urlsafe(32)
+        nombre = str(nombre or "").strip()[:60] or "API"
+        cur = con().execute("INSERT INTO api_llaves(usuario,nombre,prefijo,hash,creada) VALUES(?,?,?,?,?)",
+                            (u["usuario"], nombre, llave[:12], _hash_llave(llave), core.ahora()))
+        con().commit()
+        # La llave completa solo se entrega aquí; en la base queda su huella (SHA-256).
+        return {"id": cur.lastrowid, "nombre": nombre, "prefijo": llave[:12], "creada": core.ahora(), "ultimo_uso": None, "llave": llave}
+
+
+def listar_llaves(u):
+    with CANDADO:
+        return [dict(r) for r in con().execute("SELECT id,nombre,prefijo,creada,ultimo_uso FROM api_llaves WHERE usuario=? ORDER BY id", (u["usuario"],))]
+
+
+def revocar_llave(u, llave_id):
+    with CANDADO:
+        n = con().execute("DELETE FROM api_llaves WHERE id=? AND usuario=?", (int(llave_id), u["usuario"])).rowcount
+        con().commit()
+    if not n:
+        raise ValueError(core.M("e_llave_no"))
+
+
+def revocar_llaves_de(usuario):
+    with CANDADO:
+        con().execute("DELETE FROM api_llaves WHERE usuario=?", (usuario,))
+        con().commit()
+
+
+def usuario_por_llave(llave):
+    if not llave or not llave.startswith("psap_"):
+        return None
+    with CANDADO:
+        r = con().execute("SELECT id, usuario FROM api_llaves WHERE hash=?", (_hash_llave(llave),)).fetchone()
+        if not r:
+            return None
+        u = _buscar(r["usuario"])  # usuario desactivado o eliminado: la llave deja de servir
+        if u:
+            con().execute("UPDATE api_llaves SET ultimo_uso=? WHERE id=?", (core.ahora(), r["id"]))
+            con().commit()
+        return u
+
+
+# ---------- operaciones de la API ----------
+def _visibles(st, u):
+    """Pedidos que el usuario puede ver; al cliente no se le muestran rutas internas del SFTP."""
+    peds = st["pedidos"]
+    if es_cliente(u):
+        peds = [o for o in peds if o["KUNNR"] == u["KUNNR"]]
+        for o in peds:
+            for h in o["historial"]:
+                if h["fuente"] == "sistema" and h["estatus"] == "ENVIADO_SAP":
+                    h["texto"] = core.M("h_enviado")
+    return peds
+
+
+def _entradas_api(st, texto, nombre, u):
+    if not (texto or "").strip():
+        raise ValueError(core.M("e_vacio"))
+    filas = core.normalizar("pedidos", _con_cliente(core.leer_texto(nombre, texto), u))
+    if es_cliente(u):
+        for f in filas:
+            f["KUNNR"], f["WERKS"] = u["KUNNR"], ""
+    if not filas:
+        raise ValueError(core.M("e_sin_validos", ", ".join(core.REQ["pedidos"])))
+    return core.agrupar_entradas(filas)
+
+
+def _con_cliente(filas, u):
+    """Para un usuario cliente el número de cliente sale de su usuario: su archivo no necesita traerlo."""
+    if es_cliente(u):
+        for f in filas:
+            f["KUNNR"] = u["KUNNR"]
+    return filas
+
+
+def recibir_api(texto, nombre, u, enviar=False, permitir_duplicado=False):
+    """Recibe el archivo JSON o CSV que genera el sistema del cliente y crea sus pedidos."""
+    with CANDADO:
+        st = db.cargar(con())
+        entradas = _entradas_api(st, texto, nombre, u)
+        if not permitir_duplicado:
+            for e in entradas:
+                ex = [o["id"] for o in st["pedidos"] if e["BSTKD"] and o["KUNNR"] == e["KUNNR"] and o["BSTKD"] == e["BSTKD"]]
+                if ex:
+                    raise Duplicado(core.M("e_duplicado", e["BSTKD"], ", ".join(ex)), ex)
+        cre = _crear(st, entradas, core.M("o_api", u["usuario"]))
+        if enviar:
+            for p in cre:
+                if core.tiene_errores(p):
+                    continue
+                try:
+                    _enviar(st, p)
+                except Exception as e:  # el pedido queda en borrador y se puede reenviar
+                    p["avisos"].append(core.M("a_auto", e))
+                db.guardar_pedido(con(), p)
+        err = sum(core.tiene_errores(p) for p in cre)
+        ids = ", ".join(p["id"] for p in cre)
+        db.log(con(), "pedidos", f"API {u['usuario']}", True, core.M("m_pedidos_err", len(cre), ids, err) if err else core.M("m_pedidos", len(cre), ids))
+        con().commit()
+        return _visibles({"pedidos": copy.deepcopy(cre)}, u)
+
+
+def cotizar_api(texto, nombre, u):
+    """Igual que recibir_api pero sin guardar: devuelve almacén, precio, importe y fecha propuestos."""
+    with CANDADO:
+        st = db.cargar(con())
+        return [core.construir_pedido(st, e) for e in _entradas_api(st, texto, nombre, u)]
+
+
+def pedidos_api(u, estatus=None, pedido_cliente=None, desde=None, cliente=None, limite=200):
+    with CANDADO:
+        peds = _visibles(db.cargar(con()), u)
+    if estatus:
+        validos = {x.strip().upper() for x in estatus.split(",") if x.strip()}
+        peds = [o for o in peds if o["estatus"] in validos]
+    if pedido_cliente:
+        peds = [o for o in peds if o["BSTKD"] == pedido_cliente]
+    if desde:
+        peds = [o for o in peds if o["fecha"] >= desde or any(h["fecha"] >= desde for h in o["historial"])]
+    if cliente and not es_cliente(u):
+        peds = [o for o in peds if o["KUNNR"] == cliente]
+    return peds[:max(1, min(int(limite or 200), 1000))]
+
+
+def pedido_api(pid, u):
+    with CANDADO:
+        st = db.cargar(con())
+        p = _pedido(st, pid, u)
+        return _visibles({"pedidos": [p]}, u)[0]
+
+
+def enviar_api(pid, u):
+    p = enviar(pid, u)
+    return _visibles({"pedidos": [p]}, u)[0]
+
+
+def materiales_api(u, cliente=None):
+    with CANDADO:
+        st = db.cargar(con())
+    kunnr = u["KUNNR"] if es_cliente(u) else (cliente or "")
+    return core.materiales_api(st, kunnr)

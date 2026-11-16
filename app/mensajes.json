@@ -1,0 +1,270 @@
+{
+ "dir_sin_cp": [
+  "Dirección sin código postal: ubicada por ciudad",
+  "Address without postal code: located by city"
+ ],
+ "dir_no_ubicada": [
+  "No se pudo ubicar la dirección de entrega (sin código postal ni ciudad reconocida); se usó la dirección principal para calcular distancias",
+  "Could not locate the delivery address (no postal code or known city); the main address was used to calculate distances"
+ ],
+ "cli_no_existe": [
+  "El cliente «{0}» no existe en los datos maestros",
+  "Customer “{0}” does not exist in the master data"
+ ],
+ "sin_ref": [
+  "Sin número de pedido del cliente",
+  "No customer PO number"
+ ],
+ "ref_dup": [
+  "Ya existe otro pedido del cliente con la referencia {0}",
+  "Another order from this customer already uses reference {0}"
+ ],
+ "sin_almacenes": [
+  "No hay almacenes cargados",
+  "No warehouses loaded"
+ ],
+ "mat_no": [
+  "Material «{0}» no encontrado",
+  "Material “{0}” not found"
+ ],
+ "cant_inv": [
+  "Cantidad inválida",
+  "Invalid quantity"
+ ],
+ "sin_precio": [
+  "Sin precio vigente en la lista de precios",
+  "No valid price in the price list"
+ ],
+ "stock_insuf": [
+  "Existencia insuficiente en {0}: disponible {1} de {2}",
+  "Insufficient stock at {0}: {1} available of {2}"
+ ],
+ "alm_lejos": [
+  "El almacén más cercano ({0}) no cubre la cantidad; se sugiere {1}",
+  "The nearest warehouse ({0}) cannot cover the quantity; {1} is suggested"
+ ],
+ "sin_pos": [
+  "El pedido no tiene posiciones",
+  "The order has no line items"
+ ],
+ "h_registrado": [
+  "Pedido registrado",
+  "Order registered"
+ ],
+ "h_recalculado": [
+  "Pedido recalculado",
+  "Order recalculated"
+ ],
+ "h_enviado": [
+  "Pedido enviado a SAP",
+  "Order sent to SAP"
+ ],
+ "h_archivo": [
+  "Archivo {0} depositado en {1}:{2}",
+  "File {0} delivered to {1}:{2}"
+ ],
+ "h_archivo_local": [
+  "Archivo {0} generado para subir al SFTP",
+  "File {0} generated for upload to the SFTP"
+ ],
+ "o_captura0": [
+  "captura",
+  "manual entry"
+ ],
+ "o_captura": [
+  "captura ({0})",
+  "manual entry ({0})"
+ ],
+ "o_manual": [
+  "archivo cargado: {0} ({1})",
+  "uploaded file: {0} ({1})"
+ ],
+ "o_archivo": [
+  "archivo: {0}",
+  "file: {0}"
+ ],
+ "o_sftp": [
+  "SFTP: {0}",
+  "SFTP: {0}"
+ ],
+ "o_carpeta": [
+  "carpeta: {0}",
+  "folder: {0}"
+ ],
+ "o_demo": [
+  "demostración",
+  "demo"
+ ],
+ "a_auto": [
+  "No se pudo enviar automáticamente a SAP: {0}",
+  "Could not send to SAP automatically: {0}"
+ ],
+ "e_errores": [
+  "El pedido tiene errores; corrígelo antes de enviarlo a SAP",
+  "The order has errors; fix them before sending it to SAP"
+ ],
+ "e_ya_enviado": [
+  "El pedido ya fue enviado a SAP",
+  "The order was already sent to SAP"
+ ],
+ "e_rec": [
+  "Solo se recalculan pedidos en borrador",
+  "Only draft orders can be recalculated"
+ ],
+ "e_del": [
+  "Solo se eliminan pedidos en borrador",
+  "Only draft orders can be deleted"
+ ],
+ "e_no_pedido": [
+  "Pedido {0} no encontrado",
+  "Order {0} not found"
+ ],
+ "e_tipo": [
+  "Tipo de información desconocido",
+  "Unknown data type"
+ ],
+ "e_sin_validos": [
+  "El archivo no contiene registros válidos (columnas requeridas: {0})",
+  "The file has no valid records (required columns: {0})"
+ ],
+ "m_registros": [
+  "{0} registros actualizados",
+  "{0} records updated"
+ ],
+ "m_estatus": [
+  "{0} estatus aplicados",
+  "{0} status updates applied"
+ ],
+ "m_estatus_sin": [
+  "{0} estatus aplicados; sin pedido correspondiente: {1}",
+  "{0} status updates applied; no matching order for: {1}"
+ ],
+ "m_pedidos": [
+  "{0} pedidos recibidos ({1})",
+  "{0} orders received ({1})"
+ ],
+ "m_pedidos_err": [
+  "{0} pedidos recibidos ({1}); {2} con errores",
+  "{0} orders received ({1}); {2} with errors"
+ ],
+ "m_demo": [
+  "Datos de demostración cargados",
+  "Demo data loaded"
+ ],
+ "m_conexion": [
+  "Conexión correcta ({0}). {1} archivos pendientes en {2}",
+  "Connection OK ({0}). {1} files pending in {2}"
+ ],
+ "m_archivos": [
+  "{0} archivos procesados",
+  "{0} files processed"
+ ],
+ "e_rechazado": [
+  "Archivo rechazado: {0}",
+  "File rejected: {0}"
+ ],
+ "e_mover": [
+  "No se pudo mover a procesados: {0}",
+  "Could not move to processed: {0}"
+ ],
+ "e_sync": [
+  "Error de sincronización: {0}",
+  "Sync error: {0}"
+ ],
+ "e_sesion": [
+  "Inicia sesión",
+  "Please sign in"
+ ],
+ "e_permiso": [
+  "Tu usuario no tiene permiso para esta operación",
+  "Your user is not allowed to do this"
+ ],
+ "e_solo_admin": [
+  "Solo un administrador puede hacer esta operación",
+  "Only an administrator can do this"
+ ],
+ "e_login": [
+  "Usuario o contraseña incorrectos",
+  "Wrong username or password"
+ ],
+ "e_bloqueo": [
+  "Demasiados intentos. Espera unos minutos y vuelve a intentar.",
+  "Too many attempts. Wait a few minutes and try again."
+ ],
+ "e_usr_formato": [
+  "El usuario debe tener de 3 a 60 caracteres: letras, números, punto, guion o @",
+  "The username must be 3 to 60 characters: letters, digits, dot, hyphen or @"
+ ],
+ "e_usr_env": [
+  "Ese usuario es el administrador definido en las variables de entorno; se cambia ahí",
+  "That user is the administrator defined in the environment variables; change it there"
+ ],
+ "e_perfil": [
+  "Perfil inválido",
+  "Invalid role"
+ ],
+ "e_usr_existe": [
+  "El usuario {0} ya existe",
+  "User {0} already exists"
+ ],
+ "e_pw_nueva": [
+  "Escribe una contraseña para el usuario nuevo",
+  "Enter a password for the new user"
+ ],
+ "e_pw_corta": [
+  "La contraseña debe tener al menos 8 caracteres",
+  "The password must be at least 8 characters"
+ ],
+ "e_auto_admin": [
+  "No puedes quitarte a ti mismo el perfil de administrador ni desactivarte",
+  "You cannot remove your own administrator role or deactivate yourself"
+ ],
+ "e_auto_borrar": [
+  "No puedes eliminar tu propio usuario",
+  "You cannot delete your own user"
+ ],
+ "e_ya_admin": [
+  "La aplicación ya tiene administrador",
+  "The application already has an administrator"
+ ],
+ "e_sesion_fin": [
+  "Tu sesión terminó. Entra de nuevo.",
+  "Your session ended. Sign in again."
+ ],
+ "h_archivo_manual": [
+  "Archivo {0} generado; súbelo a SAP a mano (SFTP desactivado)",
+  "File {0} generated; upload it to SAP by hand (SFTP disabled)"
+ ],
+ "e_sftp_off": [
+  "El SFTP está desactivado en este servidor (SFTP_HABILITADO=0)",
+  "SFTP is disabled on this server (SFTP_HABILITADO=0)"
+ ],
+ "o_api": [
+  "API ({0})",
+  "API ({0})"
+ ],
+ "e_llave": [
+  "Llave de API inválida o revocada",
+  "Invalid or revoked API key"
+ ],
+ "e_llave_req": [
+  "Esta operación requiere una llave de API (encabezado Authorization: Bearer <llave>)",
+  "This operation requires an API key (header Authorization: Bearer <key>)"
+ ],
+ "e_duplicado": [
+  "Ya existe un pedido con la referencia {0} ({1}); envía allow_duplicate=true para crearlo de todos modos",
+  "An order with reference {0} already exists ({1}); send allow_duplicate=true to create it anyway"
+ ],
+ "e_max_llaves": [
+  "Máximo {0} llaves activas por usuario; revoca una antes de crear otra",
+  "At most {0} active keys per user; revoke one before creating another"
+ ],
+ "e_vacio": [
+  "El cuerpo de la solicitud está vacío: envía el pedido en JSON o CSV",
+  "The request body is empty: send the order as JSON or CSV"
+ ],
+ "e_llave_no": [
+  "Llave no encontrada",
+  "Key not found"
+ ]
+}

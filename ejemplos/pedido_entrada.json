@@ -1,0 +1,15 @@
+{
+  "customer": "100040",
+  "customer_po": "PO-45001999",
+  "delivery_address": "100042",
+  "items": [
+    {
+      "material": "PIS-BOLT-050",
+      "quantity": 120
+    },
+    {
+      "material": "10000420",
+      "quantity": 60
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+customer,customer_po,material,quantity,delivery_address
+100020,QL-PO-5521,QL-7731,500,100021
+100020,QL-PO-5521,10000675,25,100021
+100050,MTF-11300,10000550,300,"45 Wyse Rd, Dartmouth, NS B2Y 3Z1"

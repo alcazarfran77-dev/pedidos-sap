@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedidos SAP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap" rel="stylesheet">
+<style>
+/* Plan: menú fijo a la izquierda, transacción a la derecha; tablas densas con códigos SAP en monoespaciada; el estatus siempre como píldora. */
+/* Paleta: bandera de Canadá. Rojo de la bandera para menú y acciones, blanco para superficies, grises neutros para texto. */
+:root{
+  --bg:#f6f6f7; --panel:#ffffff; --ink:#1c1c1f; --mute:#5f6066; --line:#e2e2e6; --soft:#fdeceb;
+  --accent:#d52b1e; --accent-ink:#ffffff; --side:#d52b1e; --side-ink:#ffffff; --side-mute:#ffdcd8; --side-acc:#ffffff;
+  --good:#2c6b3a; --warn:#856400; --bad:#b84a00; --info:#2d5f8b;
+  --f-body:"IBM Plex Sans",system-ui,"Segoe UI",Roboto,sans-serif; --f-disp:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141415; --panel:#1e1e20; --ink:#f2f2f3; --mute:#a5a5ab; --line:#343439; --soft:#3a1c1e;
+  --accent:#ff6b61; --accent-ink:#2a0705; --side:#a81f15; --side-ink:#ffffff; --side-mute:#ffd0cc; --side-acc:#ffffff;
+  --good:#7fc48a; --warn:#e3c256; --bad:#ffa25c; --info:#8fb6dd; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141415; --panel:#1e1e20; --ink:#f2f2f3; --mute:#a5a5ab; --line:#343439; --soft:#3a1c1e;
+  --accent:#ff6b61; --accent-ink:#2a0705; --side:#a81f15; --side-ink:#ffffff; --side-mute:#ffd0cc; --side-acc:#ffffff;
+  --good:#7fc48a; --warn:#e3c256; --bad:#ffa25c; --info:#8fb6dd; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-body);display:grid;grid-template-columns:216px 1fr}
+h1,h2,h3{font-family:var(--f-disp);font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:24px} h2{font-size:17px} h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+code,.mono{font-family:var(--f-mono);font-size:12.5px}
+nav{background:var(--side);color:var(--side-ink);padding:18px 12px;display:flex;flex-direction:column;gap:4px;overflow:auto}
+nav .marca{font:600 19px var(--f-disp);padding:0 8px 2px} nav .sub{font-size:11.5px;color:var(--side-mute);padding:0 8px 14px}
+nav a{color:var(--side-ink);text-decoration:none;padding:8px 10px;border-radius:6px;display:flex;justify-content:space-between;gap:8px;border-left:3px solid transparent}
+nav a:hover{background:rgba(255,255,255,.12)} nav a.on{background:rgba(255,255,255,.2);border-left-color:var(--side-acc);font-weight:600}
+nav a .n{font:500 11.5px var(--f-mono);color:var(--side-mute)}
+nav .modo{margin-top:auto;font-size:11.5px;color:var(--side-mute);padding:10px 8px 0;border-top:1px solid rgba(255,255,255,.3)}
+nav .modo b{color:var(--side-ink);display:block}
+nav button{background:transparent;color:var(--side-ink);border-color:rgba(255,255,255,.55);margin-top:8px}
+body.acceso{grid-template-columns:1fr} body.acceso nav{display:none}
+.entrada{max-width:400px;margin:8vh auto 0} .entrada form{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+main{overflow:auto;padding:22px 26px 60px;min-width:0}
+.cab{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
+.cab p{margin:2px 0 0;color:var(--mute);max-width:65ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
+.panel>h2{margin-bottom:10px}
+.fila{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.rej{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute);font-weight:500}
+label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:13.5px;font-weight:400}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;width:100%}
+input[type=checkbox]{width:auto} textarea{font-family:var(--f-mono);font-size:12.5px;min-height:90px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,tr[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:500 13.5px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 13px;border-radius:6px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--accent)} button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.mal{color:var(--bad)} button.min{padding:3px 9px;font-size:12.5px} button:disabled{opacity:.5;cursor:not-allowed}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);text-align:left;font-weight:600;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child>td{border-bottom:0} .r{text-align:right} th.r{text-align:right}
+tr.clic{cursor:pointer} tr.clic:hover>td{background:var(--soft)}
+.pil{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap;border:1px solid currentColor}
+.pil::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.e-n{color:var(--mute)} .e-i{color:var(--info)} .e-a{color:var(--ink)} .e-g{color:var(--good)} .e-b{color:var(--bad)} .e-w{color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 12px;min-width:104px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.chip b{font:600 20px var(--f-disp)} .chip span{font-size:12px;color:var(--mute)} .chip.on{border-color:var(--accent);background:var(--soft)}
+.nota{font-size:12.5px;border-left:3px solid var(--warn);padding:5px 10px;margin:4px 0;background:color-mix(in srgb,var(--warn) 9%,transparent)}
+.nota.err{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 9%,transparent)}
+.nota.inf{border-color:var(--info);background:color-mix(in srgb,var(--info) 9%,transparent)}
+.mute{color:var(--mute)} .peq{font-size:12px} .cero{color:var(--bad);font-weight:600}
+.pasos{display:flex;gap:0;margin:14px 0 4px;overflow-x:auto}
+.paso{flex:1;min-width:84px;text-align:center;font-size:11.5px;color:var(--mute);position:relative;padding-top:18px}
+.paso::before{content:"";position:absolute;top:5px;left:0;right:0;height:3px;background:var(--line)}
+.paso::after{content:"";position:absolute;top:0;left:50%;margin-left:-6px;width:13px;height:13px;border-radius:50%;background:var(--panel);border:2px solid var(--line)}
+.paso.ok::before{background:var(--accent)} .paso.ok::after{background:var(--accent);border-color:var(--accent)} .paso.ok{color:var(--ink)}
+.paso.act{font-weight:600} .paso.act::after{box-shadow:0 0 0 4px var(--soft)}
+#cajon{position:fixed;top:0;right:0;bottom:0;width:min(880px,100%);background:var(--bg);border-left:1px solid var(--line);box-shadow:-12px 0 32px rgba(0,0,0,.18);overflow:auto;padding:20px 22px 40px;z-index:5}
+#velo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:9;padding:16px}
+#velo .panel{width:min(720px,100%);max-height:92%;overflow:auto;margin:0}
+#tostadas{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:12;width:min(560px,calc(100% - 32px))}
+.tost{background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:8px;font-size:13.5px} .tost.err{background:var(--bad);color:#fff}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hist li{display:grid;grid-template-columns:132px 1fr;gap:10px;font-size:13px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none} .tabs button.on{border-bottom-color:var(--accent);font-weight:600}
+pre{background:var(--soft);padding:10px 12px;border-radius:6px;overflow-x:auto;margin:8px 0 0;font:12.5px/1.5 var(--f-mono)}
+.demo{background:var(--soft);border:1px dashed var(--accent);border-radius:8px;padding:9px 13px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:13px}
+@media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  nav{flex-direction:row;flex-wrap:wrap;padding:10px 12px;gap:2px} nav .sub{display:none} nav .modo{margin-top:4px;border-top:0;padding:4px 8px 0;width:100%} nav .marca{width:100%;padding-bottom:6px}
+  nav a{padding:6px 9px;border-left:0} nav a .n{display:none} main{padding:16px}}
+@media (prefers-reduced-motion:no-preference){button,nav a{transition:background .12s,border-color .12s}}
+</style>
+</head>
+<body>
+<nav id="menu"></nav>
+<main id="vista"></main>
+<div id="cajon" hidden></div>
+<div id="velo" hidden></div>
+<div id="tostadas" aria-live="polite"></div>
+<script>
+const SH = {"cp":{"01":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"02":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"03":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"04":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"05":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"06":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"07":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"08":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"09":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"10":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"11":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"12":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"13":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"14":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"15":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"16":{"estado":"CDMX","ciudad":"Ciudad de México","lat":19.43,"lon":-99.13},"20":{"estado":"AGS","ciudad":"Aguascalientes","lat":21.88,"lon":-102.29},"21":{"estado":"BC","ciudad":"Mexicali","lat":32.62,"lon":-115.45},"22":{"estado":"BC","ciudad":"Tijuana","lat":32.51,"lon":-117.04},"23":{"estado":"BCS","ciudad":"La Paz","lat":24.14,"lon":-110.31},"24":{"estado":"CAM","ciudad":"Campeche","lat":19.83,"lon":-90.53},"25":{"estado":"COAH","ciudad":"Saltillo","lat":25.42,"lon":-101.0},"26":{"estado":"COAH","ciudad":"Piedras Negras","lat":28.7,"lon":-100.52},"27":{"estado":"COAH","ciudad":"Torreón","lat":25.54,"lon":-103.41},"28":{"estado":"COL","ciudad":"Colima","lat":19.24,"lon":-103.72},"29":{"estado":"CHIS","ciudad":"Tuxtla Gutiérrez","lat":16.75,"lon":-93.12},"30":{"estado":"CHIS","ciudad":"Tapachula","lat":14.9,"lon":-92.26},"31":{"estado":"CHIH","ciudad":"Chihuahua","lat":28.63,"lon":-106.07},"32":{"estado":"CHIH","ciudad":"Ciudad Juárez","lat":31.69,"lon":-106.42},"33":{"estado":"CHIH","ciudad":"Delicias","lat":28.19,"lon":-105.47},"34":{"estado":"DGO","ciudad":"Durango","lat":24.03,"lon":-104.65},"35":{"estado":"DGO","ciudad":"Gómez Palacio","lat":25.56,"lon":-103.5},"36":{"estado":"GTO","ciudad":"Irapuato","lat":20.68,"lon":-101.35},"37":{"estado":"GTO","ciudad":"León","lat":21.12,"lon":-101.68},"38":{"estado":"GTO","ciudad":"Celaya","lat":20.52,"lon":-100.81},"39":{"estado":"GRO","ciudad":"Acapulco","lat":16.86,"lon":-99.88},"40":{"estado":"GRO","ciudad":"Iguala","lat":18.35,"lon":-99.54},"41":{"estado":"GRO","ciudad":"Tlapa","lat":17.55,"lon":-98.58},"42":{"estado":"HGO","ciudad":"Pachuca","lat":20.12,"lon":-98.73},"43":{"estado":"HGO","ciudad":"Tulancingo","lat":20.08,"lon":-98.37},"44":{"estado":"JAL","ciudad":"Guadalajara","lat":20.67,"lon":-103.35},"45":{"estado":"JAL","ciudad":"Zapopan","lat":20.72,"lon":-103.39},"46":{"estado":"JAL","ciudad":"Tequila","lat":20.88,"lon":-103.83},"47":{"estado":"JAL","ciudad":"Lagos de Moreno","lat":21.35,"lon":-101.93},"48":{"estado":"JAL","ciudad":"Puerto Vallarta","lat":20.65,"lon":-105.23},"49":{"estado":"JAL","ciudad":"Ciudad Guzmán","lat":19.7,"lon":-103.46},"50":{"estado":"MEX","ciudad":"Toluca","lat":19.29,"lon":-99.66},"51":{"estado":"MEX","ciudad":"Valle de Bravo","lat":19.19,"lon":-100.13},"52":{"estado":"MEX","ciudad":"Metepec","lat":19.36,"lon":-99.45},"53":{"estado":"MEX","ciudad":"Naucalpan","lat":19.48,"lon":-99.24},"54":{"estado":"MEX","ciudad":"Tlalnepantla","lat":19.54,"lon":-99.19},"55":{"estado":"MEX","ciudad":"Ecatepec","lat":19.6,"lon":-99.05},"56":{"estado":"MEX","ciudad":"Texcoco","lat":19.4,"lon":-98.9},"57":{"estado":"MEX","ciudad":"Nezahualcóyotl","lat":19.4,"lon":-99.01},"58":{"estado":"MICH","ciudad":"Morelia","lat":19.7,"lon":-101.19},"59":{"estado":"MICH","ciudad":"Zamora","lat":19.98,"lon":-102.28},"60":{"estado":"MICH","ciudad":"Uruapan","lat":19.42,"lon":-102.06},"61":{"estado":"MICH","ciudad":"Zitácuaro","lat":19.43,"lon":-100.36},"62":{"estado":"MOR","ciudad":"Cuernavaca","lat":18.92,"lon":-99.23},"63":{"estado":"NAY","ciudad":"Tepic","lat":21.5,"lon":-104.89},"64":{"estado":"NL","ciudad":"Monterrey","lat":25.67,"lon":-100.31},"65":{"estado":"NL","ciudad":"Sabinas Hidalgo","lat":26.5,"lon":-100.18},"66":{"estado":"NL","ciudad":"Apodaca","lat":25.75,"lon":-100.25},"67":{"estado":"NL","ciudad":"Guadalupe","lat":25.68,"lon":-100.21},"68":{"estado":"OAX","ciudad":"Oaxaca","lat":17.07,"lon":-96.72},"69":{"estado":"OAX","ciudad":"Huajuapan","lat":17.8,"lon":-97.78},"70":{"estado":"OAX","ciudad":"Juchitán","lat":16.43,"lon":-95.02},"71":{"estado":"OAX","ciudad":"Puerto Escondido","lat":15.87,"lon":-97.07},"72":{"estado":"PUE","ciudad":"Puebla","lat":19.04,"lon":-98.2},"73":{"estado":"PUE","ciudad":"Zacatlán","lat":19.93,"lon":-97.96},"74":{"estado":"PUE","ciudad":"Atlixco","lat":18.9,"lon":-98.44},"75":{"estado":"PUE","ciudad":"Tehuacán","lat":18.46,"lon":-97.39},"76":{"estado":"QRO","ciudad":"Querétaro","lat":20.59,"lon":-100.39},"77":{"estado":"QROO","ciudad":"Cancún","lat":21.16,"lon":-86.85},"78":{"estado":"SLP","ciudad":"San Luis Potosí","lat":22.15,"lon":-100.98},"79":{"estado":"SLP","ciudad":"Ciudad Valles","lat":21.99,"lon":-99.01},"80":{"estado":"SIN","ciudad":"Culiacán","lat":24.81,"lon":-107.39},"81":{"estado":"SIN","ciudad":"Los Mochis","lat":25.79,"lon":-108.99},"82":{"estado":"SIN","ciudad":"Mazatlán","lat":23.25,"lon":-106.41},"83":{"estado":"SON","ciudad":"Hermosillo","lat":29.07,"lon":-110.96},"84":{"estado":"SON","ciudad":"Nogales","lat":31.3,"lon":-110.94},"85":{"estado":"SON","ciudad":"Ciudad Obregón","lat":27.48,"lon":-109.93},"86":{"estado":"TAB","ciudad":"Villahermosa","lat":17.99,"lon":-92.93},"87":{"estado":"TAMPS","ciudad":"Ciudad Victoria","lat":23.74,"lon":-99.15},"88":{"estado":"TAMPS","ciudad":"Reynosa","lat":26.08,"lon":-98.29},"89":{"estado":"TAMPS","ciudad":"Tampico","lat":22.25,"lon":-97.87},"90":{"estado":"TLAX","ciudad":"Tlaxcala","lat":19.32,"lon":-98.24},"91":{"estado":"VER","ciudad":"Xalapa","lat":19.54,"lon":-96.91},"92":{"estado":"VER","ciudad":"Tuxpan","lat":20.96,"lon":-97.4},"93":{"estado":"VER","ciudad":"Poza Rica","lat":20.53,"lon":-97.46},"94":{"estado":"VER","ciudad":"Córdoba","lat":18.88,"lon":-96.93},"95":{"estado":"VER","ciudad":"San Andrés Tuxtla","lat":18.45,"lon":-95.21},"96":{"estado":"VER","ciudad":"Coatzacoalcos","lat":18.13,"lon":-94.46},"97":{"estado":"YUC","ciudad":"Mérida","lat":20.97,"lon":-89.62},"98":{"estado":"ZAC","ciudad":"Zacatecas","lat":22.77,"lon":-102.58},"99":{"estado":"ZAC","ciudad":"Fresnillo","lat":23.17,"lon":-102.87}},"cp_ca":{"A":{"estado":"NL","ciudad":"St. John's","lat":47.56,"lon":-52.71},"A2":{"estado":"NL","ciudad":"Corner Brook","lat":48.95,"lon":-57.95},"B":{"estado":"NS","ciudad":"Halifax","lat":44.65,"lon":-63.58},"B1":{"estado":"NS","ciudad":"Sydney","lat":46.14,"lon":-60.19},"C":{"estado":"PE","ciudad":"Charlottetown","lat":46.24,"lon":-63.13},"E":{"estado":"NB","ciudad":"Moncton","lat":46.09,"lon":-64.78},"E2":{"estado":"NB","ciudad":"Saint John","lat":45.27,"lon":-66.06},"E3":{"estado":"NB","ciudad":"Fredericton","lat":45.96,"lon":-66.64},"G":{"estado":"QC","ciudad":"Québec","lat":46.81,"lon":-71.21},"G5":{"estado":"QC","ciudad":"Rimouski","lat":48.45,"lon":-68.52},"G7":{"estado":"QC","ciudad":"Saguenay","lat":48.43,"lon":-71.07},"G8":{"estado":"QC","ciudad":"Trois-Rivières","lat":46.34,"lon":-72.54},"G9":{"estado":"QC","ciudad":"Trois-Rivières","lat":46.34,"lon":-72.54},"H":{"estado":"QC","ciudad":"Montréal","lat":45.5,"lon":-73.57},"H7":{"estado":"QC","ciudad":"Laval","lat":45.57,"lon":-73.75},"J":{"estado":"QC","ciudad":"Longueuil","lat":45.53,"lon":-73.52},"J1":{"estado":"QC","ciudad":"Sherbrooke","lat":45.4,"lon":-71.89},"J7":{"estado":"QC","ciudad":"Terrebonne","lat":45.7,"lon":-73.65},"J8":{"estado":"QC","ciudad":"Gatineau","lat":45.48,"lon":-75.7},"K":{"estado":"ON","ciudad":"Ottawa","lat":45.42,"lon":-75.7},"K7":{"estado":"ON","ciudad":"Kingston","lat":44.23,"lon":-76.49},"K8":{"estado":"ON","ciudad":"Belleville","lat":44.16,"lon":-77.38},"K9":{"estado":"ON","ciudad":"Peterborough","lat":44.31,"lon":-78.32},"L":{"estado":"ON","ciudad":"Mississauga","lat":43.59,"lon":-79.64},"L1":{"estado":"ON","ciudad":"Oshawa","lat":43.9,"lon":-78.85},"L2":{"estado":"ON","ciudad":"St. Catharines","lat":43.16,"lon":-79.24},"L3":{"estado":"ON","ciudad":"Markham","lat":43.86,"lon":-79.34},"L4":{"estado":"ON","ciudad":"Vaughan","lat":43.84,"lon":-79.5},"L6":{"estado":"ON","ciudad":"Brampton","lat":43.73,"lon":-79.76},"L7":{"estado":"ON","ciudad":"Burlington","lat":43.33,"lon":-79.8},"L8":{"estado":"ON","ciudad":"Hamilton","lat":43.26,"lon":-79.87},"L9":{"estado":"ON","ciudad":"Hamilton","lat":43.26,"lon":-79.87},"M":{"estado":"ON","ciudad":"Toronto","lat":43.65,"lon":-79.38},"N":{"estado":"ON","ciudad":"London","lat":42.98,"lon":-81.25},"N1":{"estado":"ON","ciudad":"Guelph","lat":43.54,"lon":-80.25},"N2":{"estado":"ON","ciudad":"Kitchener","lat":43.45,"lon":-80.49},"N3":{"estado":"ON","ciudad":"Brantford","lat":43.14,"lon":-80.26},"N7":{"estado":"ON","ciudad":"Sarnia","lat":42.97,"lon":-82.4},"N8":{"estado":"ON","ciudad":"Windsor","lat":42.31,"lon":-83.04},"N9":{"estado":"ON","ciudad":"Windsor","lat":42.31,"lon":-83.04},"P":{"estado":"ON","ciudad":"Sudbury","lat":46.49,"lon":-81.0},"P1":{"estado":"ON","ciudad":"North Bay","lat":46.31,"lon":-79.46},"P6":{"estado":"ON","ciudad":"Sault Ste. Marie","lat":46.52,"lon":-84.35},"P7":{"estado":"ON","ciudad":"Thunder Bay","lat":48.38,"lon":-89.25},"R":{"estado":"MB","ciudad":"Winnipeg","lat":49.9,"lon":-97.14},"R7":{"estado":"MB","ciudad":"Brandon","lat":49.85,"lon":-99.95},"S":{"estado":"SK","ciudad":"Saskatoon","lat":52.13,"lon":-106.67},"S4":{"estado":"SK","ciudad":"Regina","lat":50.45,"lon":-104.62},"T":{"estado":"AB","ciudad":"Calgary","lat":51.05,"lon":-114.07},"T1":{"estado":"AB","ciudad":"Lethbridge","lat":49.69,"lon":-112.84},"T4":{"estado":"AB","ciudad":"Red Deer","lat":52.27,"lon":-113.81},"T5":{"estado":"AB","ciudad":"Edmonton","lat":53.55,"lon":-113.49},"T6":{"estado":"AB","ciudad":"Edmonton","lat":53.55,"lon":-113.49},"T7":{"estado":"AB","ciudad":"Edmonton","lat":53.55,"lon":-113.49},"T8":{"estado":"AB","ciudad":"Edmonton","lat":53.55,"lon":-113.49},"T9":{"estado":"AB","ciudad":"Fort McMurray","lat":56.73,"lon":-111.38},"V":{"estado":"BC","ciudad":"Vancouver","lat":49.28,"lon":-123.12},"V1":{"estado":"BC","ciudad":"Kelowna","lat":49.89,"lon":-119.5},"V2":{"estado":"BC","ciudad":"Kamloops","lat":50.67,"lon":-120.33},"V3":{"estado":"BC","ciudad":"Surrey","lat":49.19,"lon":-122.85},"V4":{"estado":"BC","ciudad":"Delta","lat":49.09,"lon":-123.03},"V7":{"estado":"BC","ciudad":"North Vancouver","lat":49.32,"lon":-123.07},"V8":{"estado":"BC","ciudad":"Victoria","lat":48.43,"lon":-123.37},"V9":{"estado":"BC","ciudad":"Nanaimo","lat":49.17,"lon":-123.94},"X":{"estado":"NT","ciudad":"Yellowknife","lat":62.45,"lon":-114.37},"Y":{"estado":"YT","ciudad":"Whitehorse","lat":60.72,"lon":-135.06}},"esquema":{"clientes":{"KUNNR":["cliente","no_cliente","customer","customer_no"],"NAME1":["nombre","razon_social","name"],"KUNWE":["destinatario","id_direccion","ship_to","ship_to_id"],"STRAS":["calle","direccion","domicilio","street","address"],"ORT01":["ciudad","poblacion","city"],"REGIO":["estado","region","provincia","province","state"],"PSTLZ":["cp","codigo_postal","postal_code","zip"]},"inventario":{"MATNR":["material","codigo","codigo_sap","sap_code"],"MAKTX":["descripcion","texto_material","description"],"WERKS":["almacen","centro","warehouse","plant"],"LGORT":["ubicacion","almacen_sap","storage_location"],"LABST":["existencia","stock","cantidad","libre_utilizacion","quantity","unrestricted"],"MEINS":["unidad","um","unit","uom"]},"precios":{"MATNR":["material","codigo"],"KUNNR":["cliente","customer"],"KBETR":["precio","importe","price"],"KONWA":["moneda","currency"],"DATAB":["valido_desde","desde","valid_from"],"DATBI":["valido_hasta","hasta","valid_to"]},"xref":{"KUNNR":["cliente","customer"],"KDMAT":["material_cliente","codigo_cliente","customer_material"],"MATNR":["material","codigo_sap","sap_material"]},"almacenes":{"WERKS":["almacen","centro","warehouse","plant"],"NAME1":["nombre","name"],"ORT01":["ciudad","city"],"PSTLZ":["cp","codigo_postal","postal_code","zip"],"LAT":["latitud","latitude"],"LON":["longitud","lng","longitude"]},"estatus":{"ID_PEDIDO":["pedido","id_pedido","order","order_id"],"BSTKD":["pedido_cliente","orden_compra","customer_po","po"],"KUNNR":["cliente","customer"],"VBELN":["pedido_sap","documento_sap","sap_order","sales_order"],"STATUS":["estatus","estado","status"],"FECHA":["fecha","fecha_hora","date","timestamp"],"TEXTO":["texto","comentario","mensaje","text","comment"]},"pedidos":{"KUNNR":["cliente","customer"],"BSTKD":["pedido_cliente","orden_compra","oc","customer_po","po"],"MATERIAL":["material","matnr","codigo","kdmat","item"],"CANTIDAD":["cantidad","kwmeng","qty","quantity"],"DIRECCION":["direccion_entrega","direccion","kunwe","destinatario","entrega","delivery_address","ship_to","address"],"WERKS":["almacen","centro","warehouse","plant"]}},"numericos":["LABST","KBETR","CANTIDAD","LAT","LON"],"requeridos":{"clientes":["KUNNR"],"inventario":["MATNR","WERKS"],"precios":["MATNR","KBETR"],"xref":["KUNNR","KDMAT","MATNR"],"almacenes":["WERKS"],"estatus":["STATUS"],"pedidos":["KUNNR","MATERIAL","CANTIDAD"]},"estatus_flujo":["BORRADOR","ENVIADO_SAP","CREADO","EN_SURTIDO","EMBARCADO","ENTREGADO","FACTURADO"],"demo":{"clientes":[{"KUNNR":"100010","NAME1":"Northline Fasteners Ltd.","KUNWE":"","STRAS":"480 Carlaw Ave","ORT01":"Toronto","REGIO":"ON","PSTLZ":"M4M 2T3"},{"KUNNR":"100010","NAME1":"Northline Fasteners - Ottawa Branch","KUNWE":"100011","STRAS":"2255 St. Laurent Blvd","ORT01":"Ottawa","REGIO":"ON","PSTLZ":"K1G 4K3"},{"KUNNR":"100020","NAME1":"Quincaillerie Laurentides Inc.","KUNWE":"","STRAS":"9150 boul. de l'Acadie","ORT01":"Montréal","REGIO":"QC","PSTLZ":"H4N 2T2"},{"KUNNR":"100020","NAME1":"Quincaillerie Laurentides - Québec DC","KUNWE":"100021","STRAS":"1175 av. Galilée","ORT01":"Québec","REGIO":"QC","PSTLZ":"G1P 4G1"},{"KUNNR":"100030","NAME1":"Pacific Coast Building Supplies Ltd.","KUNWE":"","STRAS":"1575 Venables St","ORT01":"Vancouver","REGIO":"BC","PSTLZ":"V5L 2G8"},{"KUNNR":"100030","NAME1":"Pacific Coast Building Supplies - Kelowna","KUNWE":"100031","STRAS":"1960 Windsor Rd","ORT01":"Kelowna","REGIO":"BC","PSTLZ":"V1Y 4R5"},{"KUNNR":"100040","NAME1":"Prairie Industrial Supply Ltd.","KUNWE":"","STRAS":"2835 23 St NE","ORT01":"Calgary","REGIO":"AB","PSTLZ":"T2E 7A4"},{"KUNNR":"100040","NAME1":"Prairie Industrial Supply - Edmonton Plant","KUNWE":"100041","STRAS":"17404 111 Ave NW","ORT01":"Edmonton","REGIO":"AB","PSTLZ":"T5S 0A2"},{"KUNNR":"100040","NAME1":"Prairie Industrial Supply - Winnipeg Plant","KUNWE":"100042","STRAS":"1425 Erin St","ORT01":"Winnipeg","REGIO":"MB","PSTLZ":"R3E 2S9"},{"KUNNR":"100050","NAME1":"Maritime Tool & Fastener Co.","KUNWE":"","STRAS":"3695 Kempt Rd","ORT01":"Halifax","REGIO":"NS","PSTLZ":"B3K 4X6"}],"almacenes":[{"WERKS":"1000","NAME1":"Toronto DC","ORT01":"Mississauga","PSTLZ":"L5T 2N5","LAT":43.66,"LON":-79.68},{"WERKS":"2000","NAME1":"Montréal DC","ORT01":"Laval","PSTLZ":"H7L 5A7","LAT":45.6,"LON":-73.75},{"WERKS":"3000","NAME1":"Calgary DC","ORT01":"Calgary","PSTLZ":"T2C 4T8","LAT":50.98,"LON":-113.98},{"WERKS":"4000","NAME1":"Vancouver DC","ORT01":"Delta","PSTLZ":"V4G 1E2","LAT":49.14,"LON":-123.01}],"inventario":[{"MATNR":"10000101","MAKTX":"Hex bolt 1/2 x 2 in Gr 5","WERKS":"1000","LGORT":"0001","LABST":420,"MEINS":"BX"},{"MATNR":"10000101","MAKTX":"Hex bolt 1/2 x 2 in Gr 5","WERKS":"2000","LGORT":"0001","LABST":300,"MEINS":"BX"},{"MATNR":"10000101","MAKTX":"Hex bolt 1/2 x 2 in Gr 5","WERKS":"3000","LGORT":"0001","LABST":650,"MEINS":"BX"},{"MATNR":"10000101","MAKTX":"Hex bolt 1/2 x 2 in Gr 5","WERKS":"4000","LGORT":"0001","LABST":80,"MEINS":"BX"},{"MATNR":"10000102","MAKTX":"Hex nut 1/2 in Gr 5","WERKS":"1000","LGORT":"0001","LABST":500,"MEINS":"BX"},{"MATNR":"10000102","MAKTX":"Hex nut 1/2 in Gr 5","WERKS":"2000","LGORT":"0001","LABST":0,"MEINS":"BX"},{"MATNR":"10000102","MAKTX":"Hex nut 1/2 in Gr 5","WERKS":"3000","LGORT":"0001","LABST":720,"MEINS":"BX"},{"MATNR":"10000102","MAKTX":"Hex nut 1/2 in Gr 5","WERKS":"4000","LGORT":"0001","LABST":60,"MEINS":"BX"},{"MATNR":"10000205","MAKTX":"Wedge anchor 3/8 x 3 in","WERKS":"1000","LGORT":"0001","LABST":120,"MEINS":"BX"},{"MATNR":"10000205","MAKTX":"Wedge anchor 3/8 x 3 in","WERKS":"2000","LGORT":"0001","LABST":210,"MEINS":"BX"},{"MATNR":"10000205","MAKTX":"Wedge anchor 3/8 x 3 in","WERKS":"3000","LGORT":"0001","LABST":35,"MEINS":"BX"},{"MATNR":"10000205","MAKTX":"Wedge anchor 3/8 x 3 in","WERKS":"4000","LGORT":"0001","LABST":0,"MEINS":"BX"},{"MATNR":"10000310","MAKTX":"Metal cut-off wheel 4-1/2 in","WERKS":"1000","LGORT":"0001","LABST":2400,"MEINS":"EA"},{"MATNR":"10000310","MAKTX":"Metal cut-off wheel 4-1/2 in","WERKS":"2000","LGORT":"0001","LABST":1800,"MEINS":"EA"},{"MATNR":"10000310","MAKTX":"Metal cut-off wheel 4-1/2 in","WERKS":"3000","LGORT":"0001","LABST":3100,"MEINS":"EA"},{"MATNR":"10000310","MAKTX":"Metal cut-off wheel 4-1/2 in","WERKS":"4000","LGORT":"0001","LABST":600,"MEINS":"EA"},{"MATNR":"10000311","MAKTX":"Grinding wheel 7 in","WERKS":"1000","LGORT":"0001","LABST":0,"MEINS":"EA"},{"MATNR":"10000311","MAKTX":"Grinding wheel 7 in","WERKS":"2000","LGORT":"0001","LABST":900,"MEINS":"EA"},{"MATNR":"10000311","MAKTX":"Grinding wheel 7 in","WERKS":"3000","LGORT":"0001","LABST":1400,"MEINS":"EA"},{"MATNR":"10000311","MAKTX":"Grinding wheel 7 in","WERKS":"4000","LGORT":"0001","LABST":150,"MEINS":"EA"},{"MATNR":"10000420","MAKTX":"Welding electrode E6013 1/8 in","WERKS":"1000","LGORT":"0001","LABST":800,"MEINS":"KG"},{"MATNR":"10000420","MAKTX":"Welding electrode E6013 1/8 in","WERKS":"2000","LGORT":"0001","LABST":650,"MEINS":"KG"},{"MATNR":"10000420","MAKTX":"Welding electrode E6013 1/8 in","WERKS":"3000","LGORT":"0001","LABST":90,"MEINS":"KG"},{"MATNR":"10000420","MAKTX":"Welding electrode E6013 1/8 in","WERKS":"4000","LGORT":"0001","LABST":300,"MEINS":"KG"},{"MATNR":"10000550","MAKTX":"Electrical tape black 19 mm","WERKS":"1000","LGORT":"0001","LABST":5000,"MEINS":"EA"},{"MATNR":"10000550","MAKTX":"Electrical tape black 19 mm","WERKS":"2000","LGORT":"0001","LABST":4200,"MEINS":"EA"},{"MATNR":"10000550","MAKTX":"Electrical tape black 19 mm","WERKS":"3000","LGORT":"0001","LABST":6100,"MEINS":"EA"},{"MATNR":"10000550","MAKTX":"Electrical tape black 19 mm","WERKS":"4000","LGORT":"0001","LABST":1200,"MEINS":"EA"},{"MATNR":"10000675","MAKTX":"Cobalt drill bit 1/4 in","WERKS":"1000","LGORT":"0001","LABST":350,"MEINS":"EA"},{"MATNR":"10000675","MAKTX":"Cobalt drill bit 1/4 in","WERKS":"2000","LGORT":"0001","LABST":20,"MEINS":"EA"},{"MATNR":"10000675","MAKTX":"Cobalt drill bit 1/4 in","WERKS":"3000","LGORT":"0001","LABST":480,"MEINS":"EA"},{"MATNR":"10000675","MAKTX":"Cobalt drill bit 1/4 in","WERKS":"4000","LGORT":"0001","LABST":0,"MEINS":"EA"}],"precios":[{"MATNR":"10000101","KUNNR":"","KBETR":185.5,"KONWA":"CAD","DATAB":"20260101","DATBI":"99991231"},{"MATNR":"10000102","KUNNR":"","KBETR":92.0,"KONWA":"CAD","DATAB":"20260101","DATBI":"99991231"},{"MATNR":"10000205","KUNNR":"","KBETR":264.75,"KONWA":"CAD","DATAB":"20260101","DATBI":"99991231"},{"MATNR":"10000310","KUNNR":"","KBETR":18.9,"KONWA":"CAD","DATAB":"20260101","DATBI":"99991231"},{"MATNR":"10000311","KUNNR":"","KBETR":46.3,"KONWA":"CAD","DATAB":"20260101","DATBI":"99991231"},{"MATNR":"10000420","KUNNR":"","KBETR":58.4,"KONWA":"CAD","DATAB":"20260101","DATBI":"99991231"},{"MATNR":"10000550","KUNNR":"","KBETR":14.2,"KONWA":"CAD","DATAB":"20260101","DATBI":"99991231"},{"MATNR":"10000675","KUNNR":"","KBETR":39.8,"KONWA":"CAD","DATAB":"20260101","DATBI":"99991231"},{"MATNR":"10000101","KUNNR":"100040","KBETR":171.0,"KONWA":"CAD","DATAB":"20260701","DATBI":"20261231"},{"MATNR":"10000310","KUNNR":"100010","KBETR":17.25,"KONWA":"CAD","DATAB":"20260701","DATBI":"20261231"}],"xref":[{"KUNNR":"100040","KDMAT":"PIS-BOLT-050","MATNR":"10000101"},{"KUNNR":"100040","KDMAT":"PIS-NUT-050","MATNR":"10000102"},{"KUNNR":"100020","KDMAT":"QL-7731","MATNR":"10000310"}],"pedidos":[{"KUNNR":"100040","BSTKD":"PO-45001872","DIRECCION":"100041","posiciones":[{"MATERIAL":"PIS-BOLT-050","CANTIDAD":200},{"MATERIAL":"10000102","CANTIDAD":200},{"MATERIAL":"10000205","CANTIDAD":30}]},{"KUNNR":"100010","BSTKD":"NF-2026-0931","DIRECCION":"","posiciones":[{"MATERIAL":"10000310","CANTIDAD":1200},{"MATERIAL":"10000311","CANTIDAD":300}]},{"KUNNR":"100030","BSTKD":"PC-88214","DIRECCION":"845 Douglas St, Victoria, BC V8W 2B6","posiciones":[{"MATERIAL":"10000550","CANTIDAD":900},{"MATERIAL":"10000675","CANTIDAD":40}]},{"KUNNR":"100050","BSTKD":"MTF-11207","DIRECCION":"","posiciones":[{"MATERIAL":"10000420","CANTIDAD":250}]}]}};
+const TIPOS_M = ["clientes","inventario","precios","xref","almacenes"], TIPOS = [...TIPOS_M,"estatus","pedidos"];
+const NOM_TIPO = {clientes:"Clientes",inventario:"Inventario por almacén",precios:"Lista de precios",xref:"Material del cliente → SAP",almacenes:"Almacenes",estatus:"Estatus de pedidos",pedidos:"Pedidos de clientes"};
+const CONFIG_DEFAULT = {
+  conexion:{modo:"carpeta",host:"",puerto:22,usuario:"",password:"",ruta_llave:"",carpeta_base:"intercambio",aceptar_host_desconocido:true,archivar:true},
+  rutas:{clientes:"entrada/clientes",inventario:"entrada/inventario",precios:"entrada/precios",xref:"entrada/xref",almacenes:"entrada/almacenes",estatus:"entrada/estatus",pedidos:"entrada/pedidos",salida:"salida/pedidos"},
+  intervalos:{clientes:60,inventario:15,precios:60,xref:60,almacenes:0,estatus:5,pedidos:5},
+  logistica:{dias_preparacion:1,omitir_fin_semana:true,tramos:[[150,1],[500,2],[1000,3],[1800,4],[99999,5]]},
+  moneda:"CAD",prefijo:"PED",consecutivo:0,enviar_automatico:false};
+
+/* ================= Motor (misma lógica que app/core.py) ================= */
+const E = (() => {
+  const M = (c, ...ps) => "@" + c + ps.map(x => "\x1f" + x).join("");
+  const ESQ = SH.esquema, CP = SH.cp, CPCA = SH.cp_ca, NUM = new Set(SH.numericos), REQ = SH.requeridos, ABIERTOS = ["BORRADOR","ENVIADO_SAP"];
+  const plano = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," ").trim().toLowerCase();
+  const clave = k => plano(k).replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");
+  const num = v => { if (v == null || typeof v === "boolean") return null; if (typeof v === "number") return v;
+    let s = String(v).trim().replace(/ /g,""); if (s.includes(",") && s.includes(".")) s = s.replace(/,/g,""); else if (s.includes(",")) s = s.replace(",",".");
+    const n = Number(s); return s === "" || isNaN(n) ? null : n; };
+  const fecha8 = v => String(v ?? "").replace(/\D/g,"").slice(0,8);
+  const p2 = n => String(n).padStart(2,"0");
+  const iso = d => `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+  const ahora = () => { const d = new Date(); return `${iso(d)}T${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; };
+  const r2 = x => Math.round((x + 1e-9) * 100) / 100;
+  const g = n => String(Math.round(n * 1000) / 1000);
+
+  function csv(texto, sep) {
+    const filas = []; let f = [], c = "", q = false;
+    for (let i = 0; i < texto.length; i++) { const ch = texto[i];
+      if (q) { if (ch === '"') { if (texto[i+1] === '"') { c += '"'; i++; } else q = false; } else c += ch; }
+      else if (ch === '"') q = true; else if (ch === sep) { f.push(c); c = ""; }
+      else if (ch === "\n") { f.push(c); filas.push(f); f = []; c = ""; } else if (ch !== "\r") c += ch; }
+    if (c !== "" || f.length) { f.push(c); filas.push(f); }
+    const cab = filas.shift() || [];
+    return filas.filter(r => r.some(x => x !== "")).map(r => Object.fromEntries(cab.map((k, i) => [k, r[i] ?? ""])));
+  }
+  function leerTexto(nombre, texto) {
+    texto = texto.replace(/^﻿/,"").trim(); if (!texto) return [];
+    if (nombre.toLowerCase().endsWith(".json") || "[{".includes(texto[0])) {
+      let d = JSON.parse(texto);
+      if (!Array.isArray(d) && d && typeof d === "object") {
+        const listas = Object.values(d).filter(v => Array.isArray(v) && v.length && typeof v[0] === "object");
+        const conPos = Object.keys(d).some(k => ["posiciones","items","partidas","lineas"].includes(clave(k)));
+        d = conPos || !listas.length ? [d] : listas[0];
+      }
+      return (Array.isArray(d) ? d : []).filter(x => x && typeof x === "object");
+    }
+    const cab = texto.split("\n")[0]; let sep = ";", mx = -1;
+    for (const s of ";,\t|") { const n = cab.split(s).length - 1; if (n > mx) { mx = n; sep = s; } }
+    return csv(texto, sep);
+  }
+  function normalizar(tipo, filas) {
+    const mapa = {};
+    for (const [canon, alias] of Object.entries(ESQ[tipo])) for (const a of [canon, ...alias]) mapa[clave(a)] ??= canon;
+    if (tipo === "pedidos") {
+      const planas = [];
+      for (const f of filas) {
+        const kp = Object.keys(f).find(k => ["posiciones","items","partidas","lineas"].includes(clave(k)));
+        if (kp && Array.isArray(f[kp])) { const cab = Object.fromEntries(Object.entries(f).filter(([, v]) => v === null || typeof v !== "object"));
+          for (const p of f[kp]) if (p && typeof p === "object") planas.push({...cab, ...p}); }
+        else planas.push(f);
+      }
+      filas = planas;
+    }
+    const out = [];
+    for (const f of filas) {
+      const r = {}; for (const c of Object.keys(ESQ[tipo])) r[c] = NUM.has(c) ? null : "";
+      for (const [k, v] of Object.entries(f)) { const c = mapa[clave(k)];
+        if (!c || v == null || (r[c] !== "" && r[c] !== null)) continue;
+        r[c] = NUM.has(c) ? num(v) : String(v).trim(); }
+      if (REQ[tipo].every(q => r[q] !== "" && r[q] !== null)) out.push(r);
+    }
+    return out;
+  }
+  function aplicarMaestro(st, tipo, filas) {
+    const llave = {clientes:r=>r.KUNNR, inventario:r=>r.WERKS, precios:r=>r.MATNR+"|"+r.KUNNR, xref:r=>r.KUNNR+"|"+r.KDMAT, almacenes:r=>r.WERKS}[tipo];
+    if (tipo === "inventario") filas.forEach(r => r.LABST = r.LABST || 0);
+    const nuevas = new Set(filas.map(llave));
+    st[tipo] = st[tipo].filter(r => !nuevas.has(llave(r))).concat(filas);
+    return filas.length;
+  }
+  function geoCp(cp) { const tx = String(cp ?? ""), c = /(^|[^A-Za-z0-9])([A-Za-z]\d[A-Za-z])[ -]?(\d[A-Za-z]\d)(?![A-Za-z0-9])/.exec(tx);
+    if (c) { const fsa = c[2].toUpperCase(), e = CPCA[fsa.slice(0,2)] || CPCA[fsa[0]]; if (e) return {...e, PSTLZ:fsa + " " + c[3].toUpperCase()}; }
+    const m = /(^|\D)(\d{5})(?!\d)/.exec(tx); if (!m) return null; const e = CP[m[2].slice(0,2)]; return e ? {...e, PSTLZ:m[2]} : null; }
+  function geoTexto(texto) { const t = plano(texto); let mejor = null;
+    for (const e of [...Object.values(CPCA), ...Object.values(CP)]) { const m = new RegExp("\\b" + plano(e.ciudad).replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\b").exec(t);
+      if (m && (!mejor || m.index < mejor[0])) mejor = [m.index, e]; }
+    return mejor ? {...mejor[1], PSTLZ:""} : null; }
+  function distanciaKm(a, b) { const R = Math.PI / 180, la1 = a.lat*R, la2 = b.lat*R;
+    const h = Math.sin((la2-la1)/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin((b.lon-a.lon)*R/2)**2; return 6371*2*Math.asin(Math.sqrt(h)); }
+  const geoAlmacen = a => a.LAT != null && a.LON != null ? {lat:a.LAT, lon:a.LON} : geoCp(a.PSTLZ);
+  function dirDeFila(r, origen) { const gg = geoCp(r.PSTLZ) || geoTexto(r.ORT01) || {};
+    return {texto:[r.STRAS, r.ORT01, r.REGIO, r.PSTLZ].filter(Boolean).join(", "), KUNWE:r.KUNWE || r.KUNNR, PSTLZ:r.PSTLZ,
+      ciudad:r.ORT01 || gg.ciudad || "", lat:gg.lat ?? null, lon:gg.lon ?? null, origen, aviso:""}; }
+  function resolverDireccion(st, kunnr, texto) {
+    const filas = st.clientes.filter(r => r.KUNNR === kunnr);
+    const principal = filas.find(r => r.KUNWE === "" || r.KUNWE === kunnr) || filas[0] || null;
+    const t = String(texto ?? "").trim();
+    if (!t) return principal ? dirDeFila(principal, "principal") : null;
+    for (const r of filas) if (t.toLowerCase() === (r.KUNWE || r.KUNNR).toLowerCase()) return dirDeFila(r, "destinatario");
+    const gg = geoCp(t) || geoTexto(t);
+    if (gg) return {texto:t, KUNWE:"", PSTLZ:gg.PSTLZ, ciudad:gg.ciudad, lat:gg.lat, lon:gg.lon, origen:"texto", aviso:gg.PSTLZ ? "" : M("dir_sin_cp")};
+    const d = principal ? dirDeFila(principal, "principal") : {KUNWE:"", PSTLZ:"", ciudad:"", lat:null, lon:null, origen:"texto"};
+    return {...d, texto:t, KUNWE:"", aviso:M("dir_no_ubicada")};
+  }
+  function catalogo(st) { const cat = {};
+    for (const r of st.inventario) cat[r.MATNR] ??= {MAKTX:r.MAKTX, MEINS:r.MEINS};
+    for (const r of st.precios) cat[r.MATNR] ??= {MAKTX:"", MEINS:""};
+    return cat; }
+  function resolverMaterial(st, kunnr, entrada, cat) {
+    cat = cat || catalogo(st); const e = String(entrada ?? "").trim();
+    if (Object.hasOwn(cat, e)) return e;
+    const sz = s => s.replace(/^0+/,"").toLowerCase();
+    for (const m in cat) if (e && sz(m) === sz(e)) return m;
+    for (const x of st.xref) if (x.KUNNR === kunnr && x.KDMAT.toLowerCase() === e.toLowerCase()) return x.MATNR;
+    const pe = plano(e); for (const m in cat) if (pe && plano(cat[m].MAKTX) === pe) return m;
+    return null;
+  }
+  function buscarPrecio(st, matnr, kunnr, hoy) {
+    const h = iso(hoy).replace(/-/g,"");
+    const vig = st.precios.filter(p => p.MATNR === matnr && (p.KUNNR === "" || p.KUNNR === kunnr) && (fecha8(p.DATAB) || "0") <= h && h <= (fecha8(p.DATBI) || "99999999"));
+    vig.sort((a, b) => ((b.KUNNR === kunnr) - (a.KUNNR === kunnr)) || fecha8(b.DATAB).localeCompare(fecha8(a.DATAB)));
+    return vig[0] || null;
+  }
+  const comprometido = (st, matnr, werks, excluir) => st.pedidos.reduce((s, o) => !ABIERTOS.includes(o.estatus) || o.id === excluir ? s :
+    s + o.posiciones.reduce((t, p) => t + (p.MATNR === matnr && p.WERKS === werks ? p.cantidad : 0), 0), 0);
+  function candidatos(st, matnr, dest, excluir, usado = {}) {
+    const out = st.almacenes.map(a => { const w = a.WERKS, gg = geoAlmacen(a);
+      const stock = st.inventario.reduce((s, r) => s + (r.MATNR === matnr && r.WERKS === w ? (r.LABST || 0) : 0), 0);
+      const d = dest && dest.lat != null && gg ? distanciaKm(dest, gg) : null;
+      return {WERKS:w, nombre:a.NAME1, distancia_km:d == null ? null : Math.round(d), existencia:stock, disponible:stock - comprometido(st, matnr, w, excluir) - (usado[matnr+"|"+w] || 0)}; });
+    out.sort((a, b) => ((a.distancia_km == null) - (b.distancia_km == null)) || ((a.distancia_km || 0) - (b.distancia_km || 0)) || (b.disponible - a.disponible));
+    return out;
+  }
+  function fechaEntrega(dist, cfg, hoy) { const lg = cfg.logistica, d = dist == null ? 800 : dist;
+    let dias = Number(lg.dias_preparacion) + (lg.tramos.find(t => d <= t[0]) || lg.tramos[lg.tramos.length-1])[1];
+    const f = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    while (dias > 0) { f.setDate(f.getDate() + 1); if (!(lg.omitir_fin_semana && [0,6].includes(f.getDay()))) dias--; }
+    return iso(f); }
+  function agruparEntradas(filas) { const gr = new Map();
+    for (const f of filas) { const k = [f.KUNNR, f.BSTKD, f.DIRECCION].join("\u0001");
+      if (!gr.has(k)) gr.set(k, {KUNNR:f.KUNNR, BSTKD:f.BSTKD, DIRECCION:f.DIRECCION, posiciones:[]});
+      gr.get(k).posiciones.push({MATERIAL:f.MATERIAL, CANTIDAD:f.CANTIDAD, WERKS:f.WERKS || ""}); }
+    return [...gr.values()]; }
+  function construirPedido(st, ent, pid = "", hoy = new Date(), previo = null) {
+    const cfg = st.config, errores = [], avisos = [], kIn = String(ent.KUNNR ?? "").trim();
+    const fila = st.clientes.find(r => r.KUNNR === kIn) || st.clientes.find(r => kIn && plano(r.NAME1) === plano(kIn)) || null;
+    const kunnr = fila ? fila.KUNNR : kIn;
+    const nombre = (st.clientes.find(r => r.KUNNR === kunnr && (r.KUNWE === "" || r.KUNWE === kunnr)) || fila || {}).NAME1 || "";
+    if (!fila) errores.push(M("cli_no_existe", kIn));
+    const bstkd = String(ent.BSTKD ?? "").trim();
+    if (!bstkd) avisos.push(M("sin_ref"));
+    else if (st.pedidos.some(o => o.KUNNR === kunnr && o.BSTKD === bstkd && o.id !== pid)) avisos.push(M("ref_dup", bstkd));
+    const direc = fila ? resolverDireccion(st, kunnr, ent.DIRECCION) : null;
+    if (direc && direc.aviso) avisos.push(direc.aviso);
+    if (!st.almacenes.length) errores.push(M("sin_almacenes"));
+    const cat = catalogo(st), usado = {}, posiciones = []; let total = 0;
+    (ent.posiciones || []).forEach((p, i) => {
+      const pe = [], pa = [], cant = num(p.CANTIDAD), matnr = resolverMaterial(st, kunnr, p.MATERIAL, cat);
+      const pos = {POSNR:(i+1)*10, material_entrada:String(p.MATERIAL ?? "").trim(), MATNR:matnr || "", MAKTX:matnr ? cat[matnr].MAKTX : "", MEINS:matnr ? cat[matnr].MEINS : "",
+        cantidad:cant || 0, precio:null, importe:null, WERKS:"", almacen:"", distancia_km:null, disponible:null, EDATU:"", candidatos:[], forzado:false};
+      if (!matnr) pe.push(M("mat_no", pos.material_entrada));
+      if (!cant || cant <= 0) pe.push(M("cant_inv"));
+      if (matnr && cant > 0) {
+        const pr = buscarPrecio(st, matnr, kunnr, hoy);
+        if (pr) { pos.precio = pr.KBETR; pos.importe = r2(pr.KBETR * cant); total += pos.importe; } else pe.push(M("sin_precio"));
+        const cs = candidatos(st, matnr, direc, pid || null, usado); pos.candidatos = cs;
+        const forz = String(p.WERKS ?? "").trim(); let el = cs.find(c => c.WERKS === forz) || null; pos.forzado = !!el;
+        if (!el) el = cs.find(c => c.disponible >= cant) || null;
+        if (!el && cs.length) { el = cs.reduce((a, b) => b.disponible > a.disponible ? b : a); if (el.disponible <= 0) el = cs[0]; }
+        if (el) { Object.assign(pos, {WERKS:el.WERKS, almacen:el.nombre, distancia_km:el.distancia_km, disponible:el.disponible, EDATU:fechaEntrega(el.distancia_km, cfg, hoy)});
+          usado[matnr+"|"+el.WERKS] = (usado[matnr+"|"+el.WERKS] || 0) + cant;
+          if (el.disponible < cant) pa.push(M("stock_insuf", el.WERKS, g(el.disponible), g(cant)));
+          else if (el !== cs[0] && !pos.forzado) pa.push(M("alm_lejos", cs[0].WERKS, el.WERKS)); }
+      }
+      pos.errores = pe; pos.avisos = pa; posiciones.push(pos);
+    });
+    if (!posiciones.length) errores.push(M("sin_pos"));
+    const t = ahora(), origen = ent.origen || M("o_captura0");
+    const ped = {id:pid, BSTKD:bstkd, KUNNR:kunnr, NAME1:nombre, direccion:direc, fecha:t, origen, estatus:"BORRADOR", VBELN:"", moneda:cfg.moneda, total:r2(total), errores, avisos, posiciones,
+      historial:[{fecha:t, estatus:"BORRADOR", texto:M("h_registrado"), fuente:"sistema"}], archivo_sap:"",
+      entrada:{KUNNR:kIn, BSTKD:bstkd, DIRECCION:ent.DIRECCION ?? "", origen, posiciones:(ent.posiciones || []).map(p => ({MATERIAL:p.MATERIAL, CANTIDAD:p.CANTIDAD, WERKS:p.WERKS || ""}))}};
+    if (previo) { ped.fecha = previo.fecha; ped.origen = previo.origen; ped.historial = previo.historial.concat({fecha:t, estatus:"BORRADOR", texto:M("h_recalculado"), fuente:"sistema"}); }
+    return ped;
+  }
+  const tieneErrores = p => p.errores.length > 0 || p.posiciones.some(x => x.errores.length);
+  function siguienteId(st) { st.config.consecutivo = Number(st.config.consecutivo || 0) + 1; return `${st.config.prefijo}-${String(st.config.consecutivo).padStart(6,"0")}`; }
+  function jsonSap(p) { const d = p.direccion || {};
+    return {ID_PEDIDO:p.id, BSTKD:p.BSTKD, KUNNR:p.KUNNR, KUNWE:d.KUNWE || p.KUNNR, DIRECCION_ENTREGA:{TEXTO:d.texto || "", PSTLZ:d.PSTLZ || "", ORT01:d.ciudad || ""},
+      AUDAT:p.fecha.slice(0,10), WAERK:p.moneda, NETWR:p.total,
+      POSICIONES:p.posiciones.map(x => ({POSNR:x.POSNR, MATNR:x.MATNR, ARKTX:x.MAKTX, KWMENG:x.cantidad, VRKME:x.MEINS, NETPR:x.precio, NETWR:x.importe, WERKS:x.WERKS, EDATU:x.EDATU}))}; }
+  const nombreArchivoSap = p => `PEDIDO_${p.id}_${ahora().replace(/\D/g,"")}.json`;
+  function marcarEnviado(p, archivo, texto) { p.estatus = "ENVIADO_SAP"; p.archivo_sap = archivo; p.historial.push({fecha:ahora(), estatus:"ENVIADO_SAP", texto, fuente:"sistema"}); }
+  function aplicarEstatus(st, filas, fuente = "SAP") { let n = 0; const sin = [];
+    for (const f of filas) {
+      const o = st.pedidos.find(x => f.ID_PEDIDO && x.id === f.ID_PEDIDO) || st.pedidos.find(x => !f.ID_PEDIDO && f.BSTKD && x.BSTKD === f.BSTKD && (!f.KUNNR || x.KUNNR === f.KUNNR));
+      if (!o) { sin.push(f.ID_PEDIDO || f.BSTKD || "?"); continue; }
+      const est = f.STATUS.trim().toUpperCase().replace(/\s+/g,"_"), h = {fecha:f.FECHA || ahora(), estatus:est, texto:f.TEXTO, fuente};
+      if (o.historial.some(x => x.fecha === h.fecha && x.estatus === est && x.texto === h.texto)) continue;
+      o.historial.push(h); o.historial.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
+      o.estatus = o.historial.filter(x => x.fuente !== "sistema").pop().estatus;
+      if (f.VBELN) o.VBELN = f.VBELN; n++;
+    }
+    return [n, sin]; }
+  return {M, plano, num, ahora, leerTexto, normalizar, aplicarMaestro, catalogo, comprometido, agruparEntradas, construirPedido, tieneErrores, siguienteId, jsonSap, nombreArchivoSap, marcarEnviado, aplicarEstatus, REQ, ESQ, g};
+})();
+
+/* ================= Acceso a datos: servidor (API + SFTP) o local (navegador) ================= */
+let S = null, B = null;
+const copia = o => JSON.parse(JSON.stringify(o));
+const Local = {
+  llave:"pedidosSAP.v2",
+  guardar() { try { localStorage.setItem(this.llave, JSON.stringify(S)); } catch (e) {} },
+  async estado() {
+    if (!S) { try { S = JSON.parse(localStorage.getItem(this.llave) || "null"); } catch (e) { S = null; }
+      if (!S) { S = {clientes:[],inventario:[],precios:[],xref:[],almacenes:[],pedidos:[],config:copia(CONFIG_DEFAULT),bitacora:[],ultima_sync:{},demo:false}; await this.demo(); } }
+    S.modo = "local"; return S; },
+  log(tipo, archivo, ok, mensaje) { S.bitacora.unshift({fecha:E.ahora(), tipo, archivo, ok:ok ? 1 : 0, mensaje}); S.bitacora.length = Math.min(S.bitacora.length, 200); },
+  crearInterno(entradas, origen) { return entradas.map(ent => { const p = E.construirPedido(S, {...ent, origen}); p.id = E.siguienteId(S); S.pedidos.unshift(p); return p; }); },
+  async importar(tipo, nombre, texto) {
+    const filas = E.normalizar(tipo, E.leerTexto(nombre, texto));
+    if (!filas.length) throw new Error(E.M("e_sin_validos", E.REQ[tipo].join(", ")));
+    let msg;
+    if (TIPOS_M.includes(tipo)) msg = E.M("m_registros", E.aplicarMaestro(S, tipo, filas));
+    else if (tipo === "estatus") { const [n, sin] = E.aplicarEstatus(S, filas); msg = sin.length ? E.M("m_estatus_sin", n, sin.slice(0,8).join(", ")) : E.M("m_estatus", n); }
+    else { const cre = this.crearInterno(E.agruparEntradas(filas), E.M("o_archivo", nombre)), err = cre.filter(E.tieneErrores).length;
+      msg = err ? E.M("m_pedidos_err", cre.length, cre.map(p => p.id).join(", "), err) : E.M("m_pedidos", cre.length, cre.map(p => p.id).join(", ")); }
+    this.log(tipo, nombre, true, msg); this.guardar(); return msg; },
+  async previsualizar(ent) { return E.construirPedido(S, ent, ent.id || ""); },
+  async crear(entradas, origen, enviar) { const cre = this.crearInterno(entradas, origen || E.M("o_captura0")); if (enviar) cre.forEach(p => this.enviarInterno(p)); this.guardar(); return cre; },
+  enviarInterno(p) { if (E.tieneErrores(p)) throw new Error(E.M("e_errores"));
+    if (p.estatus !== "BORRADOR") throw new Error(E.M("e_ya_enviado"));
+    const n = E.nombreArchivoSap(p); E.marcarEnviado(p, n, E.M("h_archivo_local", n)); },
+  ped(id) { const p = S.pedidos.find(x => x.id === id); if (!p) throw new Error(E.M("e_no_pedido", id)); return p; },
+  async enviar(id) { const p = this.ped(id); this.enviarInterno(p); this.guardar(); return p; },
+  async recalcular(id, entrada) { const p = this.ped(id); if (p.estatus !== "BORRADOR") throw new Error(E.M("e_rec"));
+    const n = E.construirPedido(S, entrada || p.entrada, id, new Date(), p); S.pedidos[S.pedidos.indexOf(p)] = n; this.guardar(); return n; },
+  async eliminar(id) { const p = this.ped(id); if (p.estatus !== "BORRADOR") throw new Error(E.M("e_del")); S.pedidos.splice(S.pedidos.indexOf(p), 1); this.guardar(); },
+  async guardarConfig(c) { const cons = S.config.consecutivo; S.config = c; S.config.consecutivo = cons; this.guardar(); },
+  async demo() { const d = copia(SH.demo); for (const t of TIPOS_M) E.aplicarMaestro(S, t, E.normalizar(t, d[t]));
+    if (!S.pedidos.length) { this.crearInterno(d.pedidos, E.M("o_demo"));
+      const [a, b] = [S.pedidos[S.pedidos.length-1], S.pedidos[S.pedidos.length-2]]; this.enviarInterno(a); this.enviarInterno(b);
+      E.aplicarEstatus(S, E.normalizar("estatus", [{ID_PEDIDO:a.id, VBELN:"0080012345", STATUS:"CREADO", FECHA:E.ahora(), TEXTO:"Sales order created"}, {ID_PEDIDO:a.id, STATUS:"EN_SURTIDO", FECHA:E.ahora().slice(0,17)+"59", TEXTO:"Picking started"}])); }
+    S.demo = true; this.log("demo", "", true, E.M("m_demo")); this.guardar(); },
+  async vaciar() { S = {clientes:[],inventario:[],precios:[],xref:[],almacenes:[],pedidos:[],config:copia(CONFIG_DEFAULT),bitacora:[],ultima_sync:{},demo:false,modo:"local"}; this.guardar(); },
+};
+const Api = {
+  async f(m, u, b) { const r = await fetch("api/" + u, {method:m, credentials:"same-origin", headers:{"X-App":"pedidos-sap", ...(b ? {"Content-Type":"application/json"} : {})}, body:b ? JSON.stringify(b) : undefined});
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401 && !["login","sesion"].includes(u)) { pantallaAcceso(false); throw new Error("@e_sesion_fin"); }
+    if (!r.ok) { const e = new Error(j.detail || r.statusText); e.datos = j; throw e; } return j; },
+  async estado() { S = await this.f("GET", "estado"); return S; },
+  async importar(tipo, nombre, texto) { return (await this.f("POST", "importar", {tipo, nombre, texto})).mensaje; },
+  previsualizar(ent) { return this.f("POST", "previsualizar", ent); },
+  crear(entradas, origen, enviar) { return this.f("POST", "pedidos", {entradas, origen, enviar}); },
+  enviar(id) { return this.f("POST", `pedidos/${encodeURIComponent(id)}/enviar`); },
+  recalcular(id, entrada) { return this.f("POST", `pedidos/${encodeURIComponent(id)}/recalcular`, {entrada}); },
+  eliminar(id) { return this.f("DELETE", `pedidos/${encodeURIComponent(id)}`); },
+  guardarConfig(c) { const x = copia(c); delete x.consecutivo; return this.f("PUT", "config", x); },
+  demo() { return this.f("POST", "demo"); },
+  async sync(tipo) { return (await this.f("POST", "sync/" + tipo)).mensaje; },
+  async probar() { return (await this.f("POST", "probar")).mensaje; },
+};
+
+/* ================= Traducciones al inglés (la clave es el texto en español) ================= */
+const EN = {
+"Pedidos SAP":"SAP Orders","Levantamiento, inventario y envío":"Order entry, inventory and dispatch","Demostración":"Demo",
+"Monitor de pedidos":"Order monitor","Capturar pedido":"Enter order","Recibir por archivo":"Receive by file","Inventario":"Inventory","Datos maestros":"Master data","Intercambio con SAP":"SAP exchange","Formatos de archivo":"File formats","Usuarios":"Users",
+"Administrador":"Administrator","Ventas":"Sales","Cliente":"Customer","cliente {0}":"customer {0}","Cerrar sesión":"Sign out","Modo sin servidor":"Serverless mode","Datos en este navegador; archivos a mano; sin usuarios":"Data in this browser; files by hand; no users",
+"Clientes":"Customers","Inventario por almacén":"Inventory by warehouse","Lista de precios":"Price list","Material del cliente → SAP":"Customer material → SAP","Almacenes":"Warehouses","Estatus de pedidos":"Order status","Pedidos de clientes":"Customer orders",
+"Borrador":"Draft","Enviado a SAP":"Sent to SAP","Creado en SAP":"Created in SAP","En surtido":"Picking","Embarcado":"Shipped","Entregado":"Delivered","Facturado":"Invoiced","Rechazado":"Rejected","Bloqueado":"Blocked","Cancelado":"Cancelled","Todos":"All","Con incidencia":"With issues",
+"Sin servidor no hay conexión SFTP: descarga o copia este archivo y deposítalo en la carpeta de entrada de SAP.":"Without a server there is no SFTP connection: download or copy this file and drop it in SAP's inbound folder.",
+"Documento JSON del pedido para SAP.":"JSON order document for SAP.","Copiar":"Copy","Descargar archivo":"Download file","Cerrar":"Close",
+"Datos de demostración.":"Demo data.","Clientes, materiales y pedidos ficticios de Canadá para probar el flujo. Carga tus archivos de SAP en «Intercambio con SAP».":"Fictional Canadian customers, materials and orders to try the flow. Load your SAP files under “SAP exchange”.",
+"Vaciar datos":"Clear data","Sin datos maestros.":"No master data.","Configura el SFTP en «Intercambio con SAP» o carga datos de demostración para probar.":"Set up the SFTP under “SAP exchange” or load demo data to try it out.","Cargar datos de demostración":"Load demo data",
+"Estatus de cada pedido según lo último que reportó SAP. Selecciona un pedido para ver su salida, su historial y enviarlo.":"Status of every order as last reported by SAP. Select an order to see its output and history, and to send it.",
+"Buscar por pedido, cliente, material o documento SAP":"Search by order, customer, material or SAP document","Buscar pedidos":"Search orders","{0} de {1}":"{0} of {1}",
+"Pedido":"Order","Pedido del cliente":"Customer PO","Entrega en":"Ship to","Embarca":"Ships from","Importe":"Amount","Entrega planificada":"Planned delivery","Estatus":"Status","Con errores":"Has errors","Con avisos":"Has warnings","No hay pedidos con este filtro.":"No orders match this filter.",
+"Pos.":"Item","Material SAP":"SAP material","Cantidad":"Quantity","Precio":"Price","Almacén de embarque":"Shipping warehouse","Recibido como {0}":"Received as {0}","Almacén de la posición {0}":"Warehouse for item {0}","disp. {0}":"avail. {0}","disponible {0}":"{0} available","Importe total":"Total amount","Sin impuestos":"Before taxes",
+"Cerrar detalle":"Close details","Documento SAP":"SAP document","Aún sin asignar":"Not assigned yet","Recibido":"Received","Entregar en":"Deliver to","Salida del pedido":"Order output","Enviar a SAP":"Send to SAP","Editar":"Edit","Recalcular con datos actuales":"Recalculate with current data","Eliminar":"Delete","Ver JSON para SAP":"View JSON for SAP","Historial de estatus":"Status history","esta aplicación":"this application",
+"Principal":"Main","Otra dirección (escribirla con código postal)":"Another address (type it with its postal code)","Editar {0}":"Edit {0}",
+"Con cliente, material, cantidad y dirección de entrega, la aplicación propone almacén de embarque, precio y fecha de entrega.":"From customer, material, quantity and delivery address, the application proposes the shipping warehouse, price and delivery date.",
+"Número de cliente SAP":"SAP customer number","Orden de compra":"Purchase order","Dirección de entrega":"Delivery address","Dirección completa":"Full address","Calle y número, ciudad, provincia, código postal":"Street and number, city, province, postal code","Posiciones":"Line items",
+"Material (código SAP, código del cliente o descripción)":"Material (SAP code, customer code or description)","Material":"Material","Quitar":"Remove","Agregar posición":"Add line item","Propuesta":"Proposal",
+"Elige un cliente y al menos un material con cantidad para ver almacén, precio y fecha de entrega.":"Pick a customer and at least one material with a quantity to see warehouse, price and delivery date.","Propuesta para {0}":"Proposal for {0}","Entrega en {0}":"Deliver to {0}",
+"Guardar cambios y enviar a SAP":"Save changes and send to SAP","Guardar y enviar a SAP":"Save and send to SAP","Guardar cambios":"Save changes","Guardar como borrador":"Save as draft","Cancelar edición":"Cancel editing","Limpiar":"Clear",
+"{0} enviado a SAP: {1}":"{0} sent to SAP: {1}","{0} listo para SAP":"{0} ready for SAP","{0} guardado como borrador":"{0} saved as draft",
+"Recibir pedidos por archivo":"Receive orders by file","Carga archivos JSON o CSV con cliente, pedido del cliente, material, cantidad y dirección de entrega. Cada pedido se valida y queda como borrador en el monitor.":"Upload JSON or CSV files with customer, customer PO, material, quantity and delivery address. Each order is validated and saved as a draft in the monitor.",
+"Los archivos depositados en la ruta de pedidos del SFTP entran solos.":"Files dropped in the SFTP orders path are picked up automatically.","Desde archivo":"From a file","Archivos de pedidos":"Order files","Procesar archivos":"Process files","Pegando el contenido":"By pasting the content","Contenido JSON o CSV":"JSON or CSV content","Procesar contenido":"Process content","Ver formato esperado":"See expected format","Resultado":"Result","Ir al monitor":"Go to the monitor","No se pudo leer {0}":"Could not read {0}",
+"Disponible = existencia de libre utilización en SAP menos lo comprometido en pedidos que SAP aún no confirma (borradores y enviados).":"Available = unrestricted stock in SAP minus what is committed in orders SAP has not confirmed yet (drafts and sent).",
+"Buscar material":"Search material","{0} materiales · {1} almacenes":"{0} materials · {1} warehouses","sincronizado {0}":"synced {0}","Descripción":"Description","UM":"UoM","Total disponible":"Total available","Sin inventario cargado.":"No inventory loaded.",
+"Nombre":"Name","Destinatario":"Ship-to","Calle":"Street","Ciudad":"City","Provincia / estado":"Province / state","Código postal":"Postal code","Cliente (vacío = lista general)":"Customer (blank = general list)","Moneda":"Currency","Válido desde":"Valid from","Válido hasta":"Valid to","Almacén":"Warehouse","Latitud":"Latitude","Longitud":"Longitude","Material del cliente":"Customer material",
+"Lo que SAP envía y la aplicación usa para validar y calcular. Se actualizan solos por SFTP en modo servidor; aquí puedes consultarlos o cargar un archivo a mano.":"What SAP sends and the application uses to validate and calculate. In server mode they update on their own over SFTP; here you can browse them or upload a file by hand.",
+"Archivo":"File","Cargar archivo: {0}":"Upload file: {0}","Última sincronización {0}":"Last sync {0}","La distancia se mide en línea recta desde las coordenadas del almacén (o su código postal) hasta la ubicación aproximada del código postal de entrega.":"Distance is measured in a straight line from the warehouse coordinates (or its postal code) to the approximate location of the delivery postal code.",
+"Sin registros.":"No records.","Se muestran 500 de {0} registros.":"Showing 500 of {0} records.",
+"La aplicación lee del SFTP los datos maestros, el inventario, los precios y los estatus cada cierto tiempo, y deposita ahí el JSON de cada pedido enviado.":"The application reads master data, inventory, prices and status from the SFTP at set intervals, and drops the JSON of every sent order there.",
+"Esta versión corre solo en tu navegador y no puede conectarse a un SFTP. Carga aquí los archivos que SAP genera y descarga el JSON de cada pedido. La versión con servidor hace ambos pasos sola.":"This version runs only in your browser and cannot connect to an SFTP. Upload the files SAP generates here and download the JSON of each order. The server version does both steps on its own.",
+"Conexión":"Connection","Medio":"Transport","Carpeta local o compartida":"Local or shared folder","Servidor SFTP":"SFTP server","Puerto":"Port","Usuario":"Username","Contraseña":"Password","Llave privada (ruta en el servidor)":"Private key (path on the server)","Carpeta base (si el medio es carpeta)":"Base folder (when transport is folder)",
+"Mover a «procesados» cada archivo leído":"Move each file to “procesados” after reading it","Aceptar servidores sin huella registrada":"Accept servers with no registered host key","Enviar a SAP sin revisión los pedidos recibidos por archivo que no tengan errores":"Send error-free orders received by file to SAP without review",
+"Guardar configuración":"Save settings","Probar conexión":"Test connection","Rutas y frecuencia de lectura":"Paths and read frequency","Cargar archivos de SAP":"Upload SAP files","Información":"Data","Ruta en el SFTP":"SFTP path","Leer cada (min, 0 = no leer)":"Read every (min, 0 = off)","Última lectura":"Last read","Registros":"Records",
+"cliente → aplicación":"customer → application","SAP → aplicación":"SAP → application","Ruta":"Path","Minutos":"Minutes","Leer ahora":"Read now","Cargar archivo":"Upload file","Pedidos para SAP":"Orders for SAP","aplicación → SAP (JSON)":"application → SAP (JSON)","Ruta de salida":"Outbound path","Al enviar cada pedido":"When each order is sent",
+"Reglas de cálculo":"Calculation rules","Días de preparación en almacén":"Warehouse preparation days","Días de tránsito por distancia (km:días)":"Transit days by distance (km:days)","Prefijo del número de pedido":"Order number prefix","Contar solo días hábiles (lunes a viernes)":"Count business days only (Monday to Friday)","Guardar reglas":"Save rules",
+"Bitácora":"Log","Fecha":"Date","Correcto":"OK","Error":"Error","Sin movimientos.":"No activity.","Escribe los tramos como km:días separados por coma, por ejemplo 150:1, 500:2":"Enter the brackets as km:days separated by commas, for example 150:1, 500:2","El prefijo no puede quedar vacío":"The prefix cannot be empty",
+"Número de cliente":"Customer number","Destinatario de mercancía; vacío en la dirección principal":"Ship-to party; blank for the main address","Calle y número":"Street and number","Provincia o estado":"Province or state","Código postal (ubica la entrega)":"Postal code (locates the delivery)",
+"Código de material SAP":"SAP material code","Descripción del material":"Material description","Almacén / centro":"Warehouse / plant","Ubicación dentro del almacén":"Storage location","Existencia de libre utilización":"Unrestricted stock","Unidad de medida":"Unit of measure",
+"Precio unitario":"Unit price","Válido desde (AAAAMMDD)":"Valid from (YYYYMMDD)","Válido hasta (AAAAMMDD)":"Valid to (YYYYMMDD)","Código que usa el cliente":"Code used by the customer","Latitud (opcional; si falta se usa el código postal)":"Latitude (optional; the postal code is used when missing)",
+"Número de pedido de esta aplicación":"Order number in this application","Pedido del cliente (se usa si no viene ID_PEDIDO)":"Customer PO (used when ID_PEDIDO is missing)","Pedido de venta en SAP":"SAP sales order","CREADO, EN_SURTIDO, EMBARCADO, ENTREGADO, FACTURADO, RECHAZADO, BLOQUEADO u otro texto":"CREADO, EN_SURTIDO, EMBARCADO, ENTREGADO, FACTURADO, RECHAZADO, BLOQUEADO or any other text",
+"Fecha y hora del estatus (AAAA-MM-DDThh:mm:ss)":"Status date and time (YYYY-MM-DDThh:mm:ss)","Comentario":"Comment","Código SAP, código del cliente o descripción exacta":"SAP code, customer code or exact description","Cantidad pedida":"Ordered quantity","Destinatario SAP, dirección con código postal, o vacío para la principal":"SAP ship-to, address with postal code, or blank for the main address",
+"Todos los archivos pueden venir en JSON (lista de objetos) o CSV con encabezado (coma, punto y coma o tabulador). Cada columna acepta su nombre SAP o cualquiera de sus alias en español o inglés; no importan mayúsculas ni acentos.":"Every file can be JSON (a list of objects) or CSV with a header row (comma, semicolon or tab). Each column accepts its SAP name or any of its Spanish or English aliases; case and accents do not matter.",
+"Campo":"Field","Alias aceptados":"Accepted aliases","Obligatorio":"Required","Contenido":"Content","Sí":"Yes","Cada archivo reemplaza el inventario de los almacenes que trae; los demás almacenes no cambian.":"Each file replaces the inventory of the warehouses it contains; other warehouses are left unchanged.",
+"Una fila por dirección de entrega. Cada archivo reemplaza todas las direcciones de los clientes que trae.":"One row per delivery address. Each file replaces all addresses of the customers it contains.","Los valores de STATUS son códigos fijos; la pantalla los muestra traducidos.":"STATUS values are fixed codes; the screen shows them translated.",
+"Salida: pedido para SAP (JSON)":"Output: order for SAP (JSON)","Un archivo por pedido, con nombre PEDIDO_<número>_<fecha y hora>.json. Se sube con extensión temporal y se renombra al terminar, para que SAP nunca lea un archivo incompleto.":"One file per order, named PEDIDO_<number>_<date and time>.json. It is uploaded with a temporary extension and renamed when complete, so SAP never reads a partial file.",
+"Cada persona entra con su propio usuario. Un usuario con perfil Cliente solo ve y captura los pedidos de su cliente SAP; Ventas ve todos los pedidos; Administrador además configura el SFTP, los datos maestros y los usuarios.":"Everyone signs in with their own user. A Customer user only sees and enters orders for their SAP customer; Sales sees all orders; Administrator also manages the SFTP, master data and users.",
+"Usuario nuevo":"New user","letras, números, punto o guion":"letters, digits, dot or hyphen","Perfil":"Role","Cliente SAP (solo perfil Cliente)":"SAP customer (Customer role only)","Mínimo 8 caracteres":"At least 8 characters","Vacía para no cambiarla":"Leave blank to keep it","Puede entrar a la aplicación":"Can sign in","Crear usuario":"Create user","Cancelar":"Cancel",
+"Usuarios registrados":"Registered users","Cliente SAP":"SAP customer","Acceso":"Access","Activo":"Active","Desactivado":"Disabled","Se cambia en las variables de entorno":"Changed in the environment variables","Aún no hay usuarios.":"No users yet.",
+"Primer arranque: crea el usuario administrador.":"First run: create the administrator user.","Entra con tu usuario.":"Sign in with your user.","Crear administrador y entrar":"Create administrator and sign in","Entrar":"Sign in","Conservar":"Keep",
+"JSON copiado":"JSON copied","Selecciona el texto y cópialo con Ctrl+C":"Select the text and copy it with Ctrl+C","{0} recalculado":"{0} recalculated","Eliminar {0}":"Delete {0}","El borrador se borra y su inventario comprometido se libera. No se puede deshacer.":"The draft is deleted and its committed inventory is released. This cannot be undone.","Eliminar pedido":"Delete order","{0} eliminado":"{0} deleted",
+"Elige al menos un archivo":"Choose at least one file","contenido pegado":"pasted content","Pega el contenido del archivo":"Paste the file content","Configuración guardada":"Settings saved","Datos de demostración cargados":"Demo data loaded",
+"Se borran de este navegador los datos maestros, el inventario y todos los pedidos.":"Master data, inventory and all orders are removed from this browser.","Vaciar todo":"Clear everything","Usuario {0} guardado":"User {0} saved","Eliminar usuario {0}":"Delete user {0}","Ya no podrá entrar. Sus pedidos se conservan.":"They will no longer be able to sign in. Their orders are kept.","Eliminar usuario":"Delete user","Usuario eliminado":"User deleted","Datos vaciados":"Data cleared"};
+
+/* ================= Idioma ================= */
+let LANG = (() => { try { return localStorage.getItem("pedidosSAP.lang") === "es" ? "es" : "en"; } catch (e) { return "en"; } })();
+const t = (s, ...a) => { const x = LANG === "es" ? s : (EN[s] ?? s); return a.length ? x.replace(/\{(\d)\}/g, (_, i) => a[i]) : x; };
+/* Mensajes que genera el motor o el servidor como "@codigo␟parametros": [español, inglés] */
+const MSG = {
+  dir_sin_cp:["Dirección sin código postal: ubicada por ciudad","Address without postal code: located by city"],
+  dir_no_ubicada:["No se pudo ubicar la dirección de entrega (sin código postal ni ciudad reconocida); se usó la dirección principal para calcular distancias","Could not locate the delivery address (no postal code or known city); the main address was used to calculate distances"],
+  cli_no_existe:["El cliente «{0}» no existe en los datos maestros","Customer “{0}” does not exist in the master data"],
+  sin_ref:["Sin número de pedido del cliente","No customer PO number"], ref_dup:["Ya existe otro pedido del cliente con la referencia {0}","Another order from this customer already uses reference {0}"],
+  sin_almacenes:["No hay almacenes cargados","No warehouses loaded"], mat_no:["Material «{0}» no encontrado","Material “{0}” not found"], cant_inv:["Cantidad inválida","Invalid quantity"],
+  sin_precio:["Sin precio vigente en la lista de precios","No valid price in the price list"],
+  stock_insuf:["Existencia insuficiente en {0}: disponible {1} de {2}","Insufficient stock at {0}: {1} available of {2}"],
+  alm_lejos:["El almacén más cercano ({0}) no cubre la cantidad; se sugiere {1}","The nearest warehouse ({0}) cannot cover the quantity; {1} is suggested"],
+  sin_pos:["El pedido no tiene posiciones","The order has no line items"],
+  h_registrado:["Pedido registrado","Order registered"], h_recalculado:["Pedido recalculado","Order recalculated"], h_enviado:["Pedido enviado a SAP","Order sent to SAP"],
+  h_archivo:["Archivo {0} depositado en {1}:{2}","File {0} delivered to {1}:{2}"], h_archivo_local:["Archivo {0} generado para subir al SFTP","File {0} generated for upload to the SFTP"],
+  o_captura0:["captura","manual entry"], o_captura:["captura ({0})","manual entry ({0})"], o_manual:["archivo cargado: {0} ({1})","uploaded file: {0} ({1})"], o_archivo:["archivo: {0}","file: {0}"],
+  o_sftp:["SFTP: {0}","SFTP: {0}"], o_carpeta:["carpeta: {0}","folder: {0}"], o_demo:["demostración","demo"],
+  a_auto:["No se pudo enviar automáticamente a SAP: {0}","Could not send to SAP automatically: {0}"],
+  e_errores:["El pedido tiene errores; corrígelo antes de enviarlo a SAP","The order has errors; fix them before sending it to SAP"], e_ya_enviado:["El pedido ya fue enviado a SAP","The order was already sent to SAP"],
+  e_rec:["Solo se recalculan pedidos en borrador","Only draft orders can be recalculated"], e_del:["Solo se eliminan pedidos en borrador","Only draft orders can be deleted"],
+  e_no_pedido:["Pedido {0} no encontrado","Order {0} not found"], e_tipo:["Tipo de información desconocido","Unknown data type"],
+  e_sin_validos:["El archivo no contiene registros válidos (columnas requeridas: {0})","The file has no valid records (required columns: {0})"],
+  m_registros:["{0} registros actualizados","{0} records updated"], m_estatus:["{0} estatus aplicados","{0} status updates applied"],
+  m_estatus_sin:["{0} estatus aplicados; sin pedido correspondiente: {1}","{0} status updates applied; no matching order for: {1}"],
+  m_pedidos:["{0} pedidos recibidos ({1})","{0} orders received ({1})"], m_pedidos_err:["{0} pedidos recibidos ({1}); {2} con errores","{0} orders received ({1}); {2} with errors"],
+  m_demo:["Datos de demostración cargados","Demo data loaded"], m_conexion:["Conexión correcta ({0}). {1} archivos pendientes en {2}","Connection OK ({0}). {1} files pending in {2}"],
+  m_archivos:["{0} archivos procesados","{0} files processed"], e_rechazado:["Archivo rechazado: {0}","File rejected: {0}"], e_mover:["No se pudo mover a procesados: {0}","Could not move to processed: {0}"],
+  e_sync:["Error de sincronización: {0}","Sync error: {0}"], e_sesion:["Inicia sesión","Please sign in"], e_permiso:["Tu usuario no tiene permiso para esta operación","Your user is not allowed to do this"],
+  e_solo_admin:["Solo un administrador puede hacer esta operación","Only an administrator can do this"], e_login:["Usuario o contraseña incorrectos","Wrong username or password"],
+  e_bloqueo:["Demasiados intentos. Espera unos minutos y vuelve a intentar.","Too many attempts. Wait a few minutes and try again."],
+  e_usr_formato:["El usuario debe tener de 3 a 60 caracteres: letras, números, punto, guion o @","The username must be 3 to 60 characters: letters, digits, dot, hyphen or @"],
+  e_usr_env:["Ese usuario es el administrador definido en las variables de entorno; se cambia ahí","That user is the administrator defined in the environment variables; change it there"],
+  e_perfil:["Perfil inválido","Invalid role"], e_usr_existe:["El usuario {0} ya existe","User {0} already exists"], e_pw_nueva:["Escribe una contraseña para el usuario nuevo","Enter a password for the new user"],
+  e_pw_corta:["La contraseña debe tener al menos 8 caracteres","The password must be at least 8 characters"],
+  e_auto_admin:["No puedes quitarte a ti mismo el perfil de administrador ni desactivarte","You cannot remove your own administrator role or deactivate yourself"],
+  e_auto_borrar:["No puedes eliminar tu propio usuario","You cannot delete your own user"], e_ya_admin:["La aplicación ya tiene administrador","The application already has an administrator"],
+  e_sesion_fin:["Tu sesión terminó. Entra de nuevo.","Your session ended. Sign in again."]};
+function tm(m) { m = String(m ?? ""); if (m[0] !== "@") return m; const ps = m.slice(1).split("\x1f"), d = MSG[ps.shift()]; if (!d) return m;
+  const tpl = d[LANG === "es" ? 0 : 1], n = (tpl.match(/\{\d\}/g) || []).length;
+  if (n && ps.length > n) ps.splice(n - 1, ps.length, ps.slice(n - 1).join("\x1f"));
+  return tpl.replace(/\{(\d)\}/g, (_, i) => tm(ps[i] ?? "")); }
+
+/* ================= Interfaz ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const loc = () => LANG === "es" ? "es-MX" : "en-CA";
+const din = (n, m) => n == null ? "—" : new Intl.NumberFormat(loc(), {style:"currency", currency:m || S.config.moneda || "CAD"}).format(n);
+const cant = n => n == null ? "—" : new Intl.NumberFormat(loc(), {maximumFractionDigits:3}).format(n);
+const fch = s => !s ? "—" : (LANG === "es" ? s.slice(0,10).split("-").reverse().join("/") : s.slice(0,10)) + (s.length > 10 ? " " + s.slice(11,16) : "");
+const EST = {BORRADOR:["Borrador","e-n"], ENVIADO_SAP:["Enviado a SAP","e-i"], CREADO:["Creado en SAP","e-a"], EN_SURTIDO:["En surtido","e-a"], EMBARCADO:["Embarcado","e-a"],
+  ENTREGADO:["Entregado","e-g"], FACTURADO:["Facturado","e-g"], RECHAZADO:["Rechazado","e-b"], BLOQUEADO:["Bloqueado","e-b"], CANCELADO:["Cancelado","e-b"]};
+const estNom = e => EST[e] ? t(EST[e][0]) : e.replace(/_/g," ").toLowerCase().replace(/^./, c => c.toUpperCase());
+const pil = e => `<span class="pil ${(EST[e] || [0,"e-w"])[1]}">${esc(estNom(e))}</span>`;
+const VISTAS = [["pedidos","Monitor de pedidos"],["captura","Capturar pedido"],["recepcion","Recibir por archivo"],["inventario","Inventario"],["maestros","Datos maestros"],["sap","Intercambio con SAP"],["formatos","Formatos de archivo"],["usuarios","Usuarios"]];
+const PERFIL = {admin:"Administrador", ventas:"Ventas", cliente:"Cliente"};
+const nomTipo = k => NOM_TIPO[k] ? t(NOM_TIPO[k]) : k === "demo" ? t("Demostración") : k;
+const rol = () => S.modo === "servidor" && S.usuario ? S.usuario.rol : "admin";
+const vistasVisibles = () => VISTAS.filter(([k]) => S.modo !== "servidor" ? k !== "usuarios" : rol() === "admin" || (rol() === "ventas" ? !["sap","usuarios"].includes(k) : ["pedidos","captura","recepcion","inventario"].includes(k)));
+let vista = "pedidos", filtro = {est:"", q:""}, abierto = null, tabM = "clientes", qInv = "", cap = null, prevTimer = null, recRes = [], usuarios = [], usrEd = null;
+
+function tost(msg, err) { const d = document.createElement("div"); d.className = "tost" + (err ? " err" : ""); d.textContent = tm(msg); $("#tostadas").appendChild(d); setTimeout(() => d.remove(), err ? 7000 : 3800); }
+async function hacer(fn, okMsg) { try { const r = await fn(); if (B === Api) await B.estado(); if (okMsg) tost(typeof okMsg === "function" ? okMsg(r) : okMsg); pintar(); return r; } catch (e) { tost(e.message || String(e), true); pintar(); } }
+async function descargar(nombre, texto) {
+  try { if (window.claude && window.claude.use) { const d = await window.claude.use("downloads"); if (d) { await d.save({filename:nombre, data:texto}); return; } } } catch (e) { return; }
+  try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([texto], {type:"application/octet-stream"})); a.download = nombre; document.body.appendChild(a); a.click(); a.remove(); } catch (e) {} }
+function modal(html) { const v = $("#velo"); v.innerHTML = `<div class="panel" role="dialog" aria-modal="true">${html}</div>`; v.hidden = false; }
+function cerrarModal() { $("#velo").hidden = true; $("#velo").innerHTML = ""; }
+function verJson(p, recien) { const txt = JSON.stringify(E.jsonSap(p), null, 2), nom = p.archivo_sap || E.nombreArchivoSap(p);
+  modal(`<h2>${esc(nom)}</h2><p class="mute">${recien && S.modo === "local" ? t("Sin servidor no hay conexión SFTP: descarga o copia este archivo y deposítalo en la carpeta de entrada de SAP.") : t("Documento JSON del pedido para SAP.")}</p>
+  <textarea id="json-txt" readonly style="min-height:300px">${esc(txt)}</textarea>
+  <div class="fila" style="margin-top:12px;justify-content:flex-end"><button data-act="copiar-json">${t("Copiar")}</button><button data-act="bajar-json" data-nom="${esc(nom)}">${t("Descargar archivo")}</button><button class="pri" data-act="cerrar-modal">${t("Cerrar")}</button></div>`); }
+const btnIdioma = () => `<button class="min" data-act="idioma" lang="${LANG === "es" ? "en" : "es"}">${LANG === "es" ? "English" : "Español"}</button>`;
+
+function pintarMenu() {
+  const n = {pedidos:S.pedidos.length, inventario:new Set(S.inventario.map(r => r.MATNR)).size, maestros:new Set(S.clientes.map(r => r.KUNNR)).size};
+  $("#menu").innerHTML = `<div class="marca">${t("Pedidos SAP")}</div><div class="sub">${t("Levantamiento, inventario y envío")}</div>` +
+    vistasVisibles().map(([k, tt]) => `<a href="#${k}" class="${k === vista ? "on" : ""}">${t(tt)}${n[k] != null ? `<span class="n">${n[k]}</span>` : ""}</a>`).join("") +
+    (S.modo === "servidor" ? `<div class="modo"><b>${esc(S.usuario.nombre || S.usuario.usuario)}</b>${t(PERFIL[S.usuario.rol])}${S.usuario.KUNNR ? " · " + t("cliente {0}", esc(S.usuario.KUNNR)) : ""}<br>${btnIdioma()} <button class="min" data-act="salir">${t("Cerrar sesión")}</button></div>`
+      : `<div class="modo"><b>${t("Modo sin servidor")}</b>${t("Datos en este navegador; archivos a mano; sin usuarios")}<br>${btnIdioma()}</div>`);
+}
+function bannerDemo() {
+  if (S.modo === "local" && S.demo) return `<div class="demo"><span><b>${t("Datos de demostración.")}</b> ${t("Clientes, materiales y pedidos ficticios de Canadá para probar el flujo. Carga tus archivos de SAP en «Intercambio con SAP».")}</span><button class="min" data-act="vaciar">${t("Vaciar datos")}</button></div>`;
+  if (S.modo === "servidor" && rol() === "admin" && !S.clientes.length && !S.inventario.length) return `<div class="demo"><span><b>${t("Sin datos maestros.")}</b> ${t("Configura el SFTP en «Intercambio con SAP» o carga datos de demostración para probar.")}</span><button class="min" data-act="demo">${t("Cargar datos de demostración")}</button></div>`;
+  return ""; }
+const cab = (tt, d, extra = "") => `<div class="cab"><div><h1>${tt}</h1><p>${d}</p></div><div class="fila">${extra}</div></div>`;
+const notas = (errs, avs) => errs.map(m => `<div class="nota err">${esc(tm(m))}</div>`).join("") + avs.map(m => `<div class="nota">${esc(tm(m))}</div>`).join("");
+
+/* ---- Monitor ---- */
+function vPedidos() {
+  const grupos = [["","Todos"],["BORRADOR","Borrador"],["ENVIADO_SAP","Enviado a SAP"],["CREADO","Creado en SAP"],["EN_SURTIDO","En surtido"],["EMBARCADO","Embarcado"],["ENTREGADO","Entregado"],["FACTURADO","Facturado"],["OTROS","Con incidencia"]];
+  const esOtro = p => !SH.estatus_flujo.includes(p.estatus), cuenta = k => k === "" ? S.pedidos.length : k === "OTROS" ? S.pedidos.filter(esOtro).length : S.pedidos.filter(p => p.estatus === k).length;
+  const q = E.plano(filtro.q);
+  const lista = S.pedidos.filter(p => (filtro.est === "" || (filtro.est === "OTROS" ? esOtro(p) : p.estatus === filtro.est)) &&
+    (!q || E.plano([p.id, p.BSTKD, p.KUNNR, p.NAME1, p.VBELN, ...p.posiciones.map(x => x.MATNR + " " + x.MAKTX)].join(" ")).includes(q)));
+  return bannerDemo() + cab(t("Monitor de pedidos"), t("Estatus de cada pedido según lo último que reportó SAP. Selecciona un pedido para ver su salida, su historial y enviarlo."),
+      `<button class="pri" data-act="ir" data-v="captura">${t("Capturar pedido")}</button>`) +
+    `<div class="chips" style="margin-bottom:14px">${grupos.map(([k, tt]) => `<button class="chip ${filtro.est === k ? "on" : ""}" data-act="filtro" data-e="${k}"><b>${cuenta(k)}</b><span>${t(tt)}</span></button>`).join("")}</div>
+    <div class="panel"><div class="fila" style="margin-bottom:10px"><input id="buscar" placeholder="${t("Buscar por pedido, cliente, material o documento SAP")}" value="${esc(filtro.q)}" style="max-width:420px" aria-label="${t("Buscar pedidos")}"><span class="mute peq">${t("{0} de {1}", lista.length, S.pedidos.length)}</span></div>
+    <div class="scroll"><table><thead><tr><th>${t("Pedido")}</th><th>${t("Pedido del cliente")}</th><th>${t("Cliente")}</th><th>${t("Entrega en")}</th><th>${t("Embarca")}</th><th class="r">${t("Importe")}</th><th>${t("Entrega planificada")}</th><th>${t("Estatus")}</th></tr></thead><tbody>
+    ${lista.map(p => { const al = [...new Set(p.posiciones.map(x => x.WERKS).filter(Boolean))].join(", "), fe = p.posiciones.map(x => x.EDATU).filter(Boolean).sort().pop();
+      const inc = E.tieneErrores(p) ? `<span class="pil e-b">${t("Con errores")}</span>` : (p.avisos.length || p.posiciones.some(x => x.avisos.length)) ? `<span class="pil e-w">${t("Con avisos")}</span>` : "";
+      return `<tr class="clic" tabindex="0" data-act="abrir" data-id="${esc(p.id)}"><td class="mono">${esc(p.id)}${p.VBELN ? `<div class="mute peq">SAP ${esc(p.VBELN)}</div>` : ""}</td><td class="mono">${esc(p.BSTKD) || "—"}</td>
+      <td>${esc(p.NAME1) || "—"}<div class="mute peq mono">${esc(p.KUNNR)}</div></td><td>${esc(p.direccion ? p.direccion.ciudad || p.direccion.PSTLZ : "—")}</td><td class="mono">${esc(al) || "—"}</td>
+      <td class="r">${din(p.total, p.moneda)}</td><td>${fch(fe)}</td><td><div class="fila" style="gap:6px">${pil(p.estatus)}${inc}</div></td></tr>`; }).join("") || `<tr><td colspan="8" class="mute">${t("No hay pedidos con este filtro.")}</td></tr>`}
+    </tbody></table></div></div>`;
+}
+function tablaSalida(p, editable) {
+  return `<div class="scroll"><table><thead><tr><th>${t("Pos.")}</th><th>${t("Material SAP")}</th><th class="r">${t("Cantidad")}</th><th class="r">${t("Precio")}</th><th class="r">${t("Importe")}</th><th>${t("Almacén de embarque")}</th><th>${t("Entrega planificada")}</th></tr></thead><tbody>
+  ${p.posiciones.map((x, i) => `<tr><td class="mono">${x.POSNR}</td><td><span class="mono">${esc(x.MATNR) || "—"}</span> ${esc(x.MAKTX)}${x.material_entrada && x.material_entrada !== x.MATNR ? `<div class="mute peq">${t("Recibido como {0}", esc(x.material_entrada))}</div>` : ""}
+    ${notas(x.errores, x.avisos)}</td>
+    <td class="r">${cant(x.cantidad)} <span class="mute peq">${esc(x.MEINS)}</span></td><td class="r">${din(x.precio, p.moneda)}</td><td class="r">${din(x.importe, p.moneda)}</td>
+    <td>${editable && x.candidatos.length ? `<select data-alm="${i}" aria-label="${t("Almacén de la posición {0}", x.POSNR)}">${x.candidatos.map(c => `<option value="${esc(c.WERKS)}" ${c.WERKS === x.WERKS ? "selected" : ""}>${esc(c.WERKS)} ${esc(c.nombre)} · ${c.distancia_km == null ? "—" : c.distancia_km + " km"} · ${t("disp. {0}", cant(c.disponible))}</option>`).join("")}</select>`
+      : x.WERKS ? `<span class="mono">${esc(x.WERKS)}</span> ${esc(x.almacen)}<div class="mute peq">${x.distancia_km == null ? "" : x.distancia_km + " km · "}${t("disponible {0}", cant(x.disponible))}</div>` : "—"}</td>
+    <td>${fch(x.EDATU)}</td></tr>`).join("")}
+  <tr><td colspan="4" class="r"><b>${t("Importe total")}</b></td><td class="r"><b>${din(p.total, p.moneda)}</b></td><td colspan="2" class="mute peq">${t("Sin impuestos")} · ${esc(p.moneda)}</td></tr></tbody></table></div>`;
+}
+function pintarCajon() {
+  const c = $("#cajon"), p = abierto && S.pedidos.find(x => x.id === abierto);
+  if (!p) { c.hidden = true; abierto = null; return; }
+  const flujo = SH.estatus_flujo, hechos = new Set(p.historial.map(h => h.estatus)); let idx = flujo.indexOf(p.estatus);
+  if (idx < 0) idx = Math.max(...flujo.map((e, i) => hechos.has(e) ? i : -1));
+  const borr = p.estatus === "BORRADOR", d = p.direccion;
+  c.innerHTML = `<div class="cab"><div><h3>${t("Pedido")}</h3><h1 class="mono" style="font-family:var(--f-mono)">${esc(p.id)}</h1><p>${esc(p.NAME1)} · <span class="mono">${esc(p.KUNNR)}</span></p></div><div class="fila">${pil(p.estatus)}<button data-act="cerrar-cajon" aria-label="${t("Cerrar detalle")}">${t("Cerrar")}</button></div></div>
+  <div class="panel"><div class="rej"><div><h3>${t("Pedido del cliente")}</h3><div class="mono">${esc(p.BSTKD) || "—"}</div></div><div><h3>${t("Documento SAP")}</h3><div class="mono">${esc(p.VBELN) || t("Aún sin asignar")}</div></div>
+    <div><h3>${t("Recibido")}</h3><div>${fch(p.fecha)}</div><div class="mute peq">${esc(tm(p.origen))}</div></div><div><h3>${t("Entregar en")}</h3><div>${esc(d ? d.texto : "—")}</div></div></div>
+    <div class="pasos">${flujo.map((e, i) => `<div class="paso ${i <= idx ? "ok" : ""} ${e === p.estatus ? "act" : ""}">${esc(estNom(e))}</div>`).join("")}</div>
+    ${notas(p.errores, p.avisos)}</div>
+  <div class="panel"><h2>${t("Salida del pedido")}</h2>${tablaSalida(p)}
+    <div class="fila" style="margin-top:14px">${borr ? `<button class="pri" data-act="enviar" data-id="${esc(p.id)}" ${E.tieneErrores(p) ? "disabled" : ""}>${t("Enviar a SAP")}</button><button data-act="editar" data-id="${esc(p.id)}">${t("Editar")}</button><button data-act="recalcular" data-id="${esc(p.id)}">${t("Recalcular con datos actuales")}</button><button class="mal" data-act="pedir-eliminar" data-id="${esc(p.id)}">${t("Eliminar")}</button>` : ""}
+    <button data-act="ver-json" data-id="${esc(p.id)}">${t("Ver JSON para SAP")}</button></div></div>
+  <div class="panel"><h2>${t("Historial de estatus")}</h2><ul class="hist">${p.historial.slice().reverse().map(h => `<li><span class="mute">${fch(h.fecha)}</span><span>${pil(h.estatus)} <span class="mute peq">${h.fuente === "sistema" ? t("esta aplicación") : esc(h.fuente)}</span><div>${esc(tm(h.texto))}</div></span></li>`).join("")}</ul></div>`;
+  c.hidden = false;
+}
+
+/* ---- Captura ---- */
+function capNueva() { cap = {id:null, KUNNR:rol() === "cliente" ? S.usuario.KUNNR : "", BSTKD:"", dirSel:"", dirTxt:"", pos:[{MATERIAL:"", CANTIDAD:"", WERKS:""}], prev:null}; }
+function capEntrada() { return {KUNNR:cap.KUNNR.trim(), BSTKD:cap.BSTKD.trim(), DIRECCION:cap.dirSel === "__otra__" ? cap.dirTxt : cap.dirSel, posiciones:cap.pos.filter(p => String(p.MATERIAL).trim() || String(p.CANTIDAD).trim())}; }
+function opcionesDir() { const fs = S.clientes.filter(r => r.KUNNR === cap.KUNNR.trim());
+  return fs.map(r => { const v = r.KUNWE && r.KUNWE !== r.KUNNR ? r.KUNWE : ""; return `<option value="${esc(v)}" ${cap.dirSel === v ? "selected" : ""}>${v ? esc(v) : t("Principal")} — ${esc([r.STRAS, r.ORT01, r.PSTLZ].filter(Boolean).join(", "))}</option>`; }).join("") +
+    `<option value="__otra__" ${cap.dirSel === "__otra__" ? "selected" : ""}>${t("Otra dirección (escribirla con código postal)")}</option>`; }
+function vCaptura() {
+  if (!cap) capNueva();
+  const cls = [...new Map(S.clientes.map(r => [r.KUNNR, r])).values()], cat = E.catalogo(S);
+  return cab(cap.id ? t("Editar {0}", esc(cap.id)) : t("Capturar pedido"), t("Con cliente, material, cantidad y dirección de entrega, la aplicación propone almacén de embarque, precio y fecha de entrega.")) +
+  `<div class="panel"><div class="rej">
+    <label>${t("Cliente")}<input id="c-cli" list="l-cli" value="${esc(cap.KUNNR)}" placeholder="${t("Número de cliente SAP")}" autocomplete="off" ${rol() === "cliente" ? "readonly" : ""}></label>
+    <label>${t("Pedido del cliente")}<input id="c-ped" value="${esc(cap.BSTKD)}" placeholder="${t("Orden de compra")}"></label>
+    <label style="grid-column:span 2">${t("Dirección de entrega")}<select id="c-dir">${opcionesDir()}</select></label></div>
+    <datalist id="l-cli">${cls.map(r => `<option value="${esc(r.KUNNR)}">${esc(r.NAME1)}</option>`).join("")}</datalist>
+    <datalist id="l-mat">${Object.entries(cat).map(([m, v]) => `<option value="${esc(m)}">${esc(v.MAKTX)}</option>`).join("")}</datalist>
+    <label id="c-otra" style="margin-top:12px" ${cap.dirSel === "__otra__" ? "" : "hidden"}>${t("Dirección completa")}<input id="c-dirtxt" value="${esc(cap.dirTxt)}" placeholder="${t("Calle y número, ciudad, provincia, código postal")}"></label>
+    <h3 style="margin:18px 0 8px">${t("Posiciones")}</h3>
+    <div class="scroll"><table><thead><tr><th style="width:55%">${t("Material (código SAP, código del cliente o descripción)")}</th><th>${t("Cantidad")}</th><th></th></tr></thead><tbody>
+    ${cap.pos.map((p, i) => `<tr><td><input data-pos="${i}" data-k="MATERIAL" list="l-mat" value="${esc(p.MATERIAL)}" aria-label="${t("Material")} ${i+1}" autocomplete="off"></td><td><input data-pos="${i}" data-k="CANTIDAD" inputmode="decimal" value="${esc(p.CANTIDAD)}" aria-label="${t("Cantidad")} ${i+1}"></td><td><button class="min" data-act="quitar-pos" data-i="${i}" ${cap.pos.length < 2 ? "disabled" : ""}>${t("Quitar")}</button></td></tr>`).join("")}
+    </tbody></table></div><div class="fila" style="margin-top:10px"><button data-act="mas-pos">${t("Agregar posición")}</button></div></div>
+  <div class="panel" id="cap-prev">${htmlPrev()}</div>`;
+}
+function htmlPrev() {
+  const p = cap.prev;
+  if (!p) return `<h2>${t("Propuesta")}</h2><p class="mute">${t("Elige un cliente y al menos un material con cantidad para ver almacén, precio y fecha de entrega.")}</p>`;
+  return `<h2>${t("Propuesta para {0}", esc(p.NAME1 || p.KUNNR))}</h2>${p.direccion ? `<p class="mute">${t("Entrega en {0}", esc(p.direccion.texto))}</p>` : ""}
+    ${notas(p.errores, p.avisos)}${tablaSalida(p, rol() !== "cliente")}
+    <div class="fila" style="margin-top:14px"><button class="pri" data-act="guardar-enviar" ${E.tieneErrores(p) ? "disabled" : ""}>${cap.id ? t("Guardar cambios y enviar a SAP") : t("Guardar y enviar a SAP")}</button>
+    <button data-act="guardar">${cap.id ? t("Guardar cambios") : t("Guardar como borrador")}</button><button data-act="cap-limpiar">${cap.id ? t("Cancelar edición") : t("Limpiar")}</button></div>`;
+}
+function previsualizar() { clearTimeout(prevTimer); prevTimer = setTimeout(async () => {
+  const ent = capEntrada();
+  if (!ent.KUNNR || !ent.posiciones.length) cap.prev = null;
+  else try { cap.prev = await B.previsualizar({...ent, id:cap.id || ""}); } catch (e) { tost(e.message, true); }
+  const el = $("#cap-prev"); if (el && vista === "captura") el.innerHTML = htmlPrev(); }, 250); }
+async function guardarCaptura(enviar) {
+  const ent = capEntrada(); let p;
+  await hacer(async () => {
+    if (cap.id) { p = await B.recalcular(cap.id, ent); if (enviar) p = await B.enviar(cap.id); }
+    else p = (await B.crear([ent], null, enviar))[0];
+    if (B === Api) await B.estado(); capNueva(); abierto = p.id; location.hash = "pedidos"; vista = "pedidos";
+  }, () => enviar ? (S.modo === "servidor" ? t("{0} enviado a SAP: {1}", p.id, p.archivo_sap) : t("{0} listo para SAP", p.id)) : t("{0} guardado como borrador", p.id));
+  if (p && enviar && S.modo === "local") verJson(p, true);
+}
+
+/* ---- Recepción por archivo ---- */
+function vRecepcion() {
+  return cab(t("Recibir pedidos por archivo"), t("Carga archivos JSON o CSV con cliente, pedido del cliente, material, cantidad y dirección de entrega. Cada pedido se valida y queda como borrador en el monitor.") +
+      (S.modo === "servidor" ? " " + t("Los archivos depositados en la ruta de pedidos del SFTP entran solos.") : "")) +
+  `<div class="panel"><h2>${t("Desde archivo")}</h2><div class="fila"><input type="file" id="f-ped" accept=".json,.csv,.txt" multiple style="max-width:420px" aria-label="${t("Archivos de pedidos")}"><button class="pri" data-act="subir-ped">${t("Procesar archivos")}</button></div></div>
+  <div class="panel"><h2>${t("Pegando el contenido")}</h2><textarea id="t-ped" placeholder="customer,customer_po,material,quantity,delivery_address&#10;100020,QL-PO-7001,10000310,500,100021" aria-label="${t("Contenido JSON o CSV")}"></textarea>
+    <div class="fila" style="margin-top:10px"><button data-act="pegar-ped">${t("Procesar contenido")}</button>${rol() === "cliente" ? "" : `<button data-act="ir" data-v="formatos">${t("Ver formato esperado")}</button>`}</div></div>
+  ${recRes.length ? `<div class="panel"><h2>${t("Resultado")}</h2>${recRes.map(r => `<div class="nota ${r.ok ? "inf" : "err"}"><b>${esc(r.nombre)}</b> — ${esc(tm(r.msg))}</div>`).join("")}<div class="fila" style="margin-top:10px"><button data-act="ir" data-v="pedidos">${t("Ir al monitor")}</button></div></div>` : ""}`;
+}
+const leerArchivo = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => no(new Error(t("No se pudo leer {0}", f.name))); r.readAsText(f, "utf-8"); });
+async function importarArchivos(tipo, archivos) { const res = [];
+  for (const f of archivos) { try { res.push({nombre:f.name, ok:true, msg:await B.importar(tipo, f.name, await leerArchivo(f))}); } catch (e) { res.push({nombre:f.name, ok:false, msg:e.message}); } }
+  if (B === Api) await B.estado(); return res; }
+
+/* ---- Inventario ---- */
+function vInventario() {
+  const cat = E.catalogo(S), q = E.plano(qInv), alm = S.almacenes;
+  const filas = Object.entries(cat).filter(([m, v]) => !q || E.plano(m + " " + v.MAKTX).includes(q)).sort();
+  return cab(t("Inventario"), t("Disponible = existencia de libre utilización en SAP menos lo comprometido en pedidos que SAP aún no confirma (borradores y enviados).")) +
+  `<div class="panel"><div class="fila" style="margin-bottom:10px"><input id="buscar-inv" placeholder="${t("Buscar material")}" value="${esc(qInv)}" style="max-width:320px" aria-label="${t("Buscar material")}"><span class="mute peq">${t("{0} materiales · {1} almacenes", filas.length, alm.length)}${S.ultima_sync && S.ultima_sync.inventario ? " · " + t("sincronizado {0}", fch(S.ultima_sync.inventario)) : ""}</span></div>
+  <div class="scroll"><table><thead><tr><th>${t("Material")}</th><th>${t("Descripción")}</th><th>${t("UM")}</th>${alm.map(a => `<th class="r">${esc(a.WERKS)}<div style="text-transform:none;letter-spacing:0;font-weight:400">${esc(a.NAME1)}</div></th>`).join("")}<th class="r">${t("Total disponible")}</th></tr></thead><tbody>
+  ${filas.map(([m, v]) => { let tot = 0; const cs = alm.map(a => { const ex = S.inventario.reduce((s, r) => s + (r.MATNR === m && r.WERKS === a.WERKS ? r.LABST || 0 : 0), 0), co = E.comprometido(S, m, a.WERKS), d = ex - co; tot += d;
+      return `<td class="r ${d <= 0 ? "cero" : ""}">${cant(d)}${co ? `<div class="mute peq" style="font-weight:400">${cant(ex)} − ${cant(co)}</div>` : ""}</td>`; }).join("");
+    return `<tr><td class="mono">${esc(m)}</td><td>${esc(v.MAKTX)}</td><td>${esc(v.MEINS)}</td>${cs}<td class="r"><b>${cant(tot)}</b></td></tr>`; }).join("") || `<tr><td colspan="${4 + alm.length}" class="mute">${t("Sin inventario cargado.")}</td></tr>`}
+  </tbody></table></div></div>`;
+}
+
+/* ---- Datos maestros ---- */
+const COLS = {clientes:[["KUNNR","Cliente"],["NAME1","Nombre"],["KUNWE","Destinatario"],["STRAS","Calle"],["ORT01","Ciudad"],["REGIO","Provincia / estado"],["PSTLZ","Código postal"]],
+  precios:[["MATNR","Material"],["KUNNR","Cliente (vacío = lista general)"],["KBETR","Precio"],["KONWA","Moneda"],["DATAB","Válido desde"],["DATBI","Válido hasta"]],
+  almacenes:[["WERKS","Almacén"],["NAME1","Nombre"],["ORT01","Ciudad"],["PSTLZ","Código postal"],["LAT","Latitud"],["LON","Longitud"]],
+  xref:[["KUNNR","Cliente"],["KDMAT","Material del cliente"],["MATNR","Material SAP"]]};
+function vMaestros() {
+  const filas = S[tabM].slice(0, 500), cols = COLS[tabM];
+  return cab(t("Datos maestros"), t("Lo que SAP envía y la aplicación usa para validar y calcular. Se actualizan solos por SFTP en modo servidor; aquí puedes consultarlos o cargar un archivo a mano.")) +
+  `<div class="panel"><div class="tabs">${Object.keys(COLS).map(k => `<button class="${k === tabM ? "on" : ""}" data-act="tab" data-t="${k}">${nomTipo(k)} <span class="mute">${S[k].length}</span></button>`).join("")}</div>
+  <div class="fila" style="margin-bottom:12px" ${rol() === "admin" ? "" : "hidden"}><input type="file" id="f-mae" accept=".json,.csv,.txt" multiple style="max-width:360px" aria-label="${t("Archivo")}"><button data-act="subir-mae">${t("Cargar archivo: {0}", nomTipo(tabM))}</button>
+  ${S.ultima_sync && S.ultima_sync[tabM] ? `<span class="mute peq">${t("Última sincronización {0}", fch(S.ultima_sync[tabM]))}</span>` : ""}</div>
+  ${tabM === "almacenes" ? `<p class="mute peq" style="margin-top:0">${t("La distancia se mide en línea recta desde las coordenadas del almacén (o su código postal) hasta la ubicación aproximada del código postal de entrega.")}</p>` : ""}
+  <div class="scroll"><table><thead><tr>${cols.map(c => `<th>${t(c[1])}</th>`).join("")}</tr></thead><tbody>
+  ${filas.map(r => `<tr>${cols.map(([k]) => `<td class="${["NAME1","STRAS","ORT01"].includes(k) ? "" : "mono"}">${k === "KBETR" ? din(r[k], r.KONWA) : esc(r[k] ?? "")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="mute">${t("Sin registros.")}</td></tr>`}
+  </tbody></table></div>${S[tabM].length > 500 ? `<p class="mute peq">${t("Se muestran 500 de {0} registros.", S[tabM].length)}</p>` : ""}</div>`;
+}
+
+/* ---- Intercambio con SAP ---- */
+function vSap() {
+  const c = S.config, srv = S.modo === "servidor", cx = c.conexion;
+  const campo = (ruta, et, tipo = "text", extra = "") => { const v = ruta.split(".").reduce((o, k) => o[k], c);
+    return tipo === "checkbox" ? `<label class="chk"><input type="checkbox" data-cfg="${ruta}" ${v ? "checked" : ""}>${t(et)}</label>` : `<label>${t(et)}<input type="${tipo}" data-cfg="${ruta}" value="${esc(v)}" ${extra}></label>`; };
+  return cab(t("Intercambio con SAP"), srv ? t("La aplicación lee del SFTP los datos maestros, el inventario, los precios y los estatus cada cierto tiempo, y deposita ahí el JSON de cada pedido enviado.")
+      : t("Esta versión corre solo en tu navegador y no puede conectarse a un SFTP. Carga aquí los archivos que SAP genera y descarga el JSON de cada pedido. La versión con servidor hace ambos pasos sola.")) +
+  (srv ? `<div class="panel"><h2>${t("Conexión")}</h2><div class="rej">
+      <label>${t("Medio")}<select data-cfg="conexion.modo"><option value="sftp" ${cx.modo === "sftp" ? "selected" : ""}>SFTP</option><option value="carpeta" ${cx.modo === "carpeta" ? "selected" : ""}>${t("Carpeta local o compartida")}</option></select></label>
+      ${campo("conexion.host","Servidor SFTP")}${campo("conexion.puerto","Puerto","number")}${campo("conexion.usuario","Usuario")}${campo("conexion.password","Contraseña","password",'autocomplete="new-password"')}
+      ${campo("conexion.ruta_llave","Llave privada (ruta en el servidor)")}${campo("conexion.carpeta_base","Carpeta base (si el medio es carpeta)")}</div>
+      <div class="fila" style="margin-top:12px">${campo("conexion.archivar","Mover a «procesados» cada archivo leído","checkbox")}${campo("conexion.aceptar_host_desconocido","Aceptar servidores sin huella registrada","checkbox")}${campo("enviar_automatico","Enviar a SAP sin revisión los pedidos recibidos por archivo que no tengan errores","checkbox")}</div>
+      <div class="fila" style="margin-top:12px"><button class="pri" data-act="guardar-cfg">${t("Guardar configuración")}</button><button data-act="probar">${t("Probar conexión")}</button></div></div>` : "") +
+  `<div class="panel"><h2>${srv ? t("Rutas y frecuencia de lectura") : t("Cargar archivos de SAP")}</h2><div class="scroll"><table><thead><tr><th>${t("Información")}</th>${srv ? `<th>${t("Ruta en el SFTP")}</th><th>${t("Leer cada (min, 0 = no leer)")}</th><th>${t("Última lectura")}</th>` : `<th>${t("Registros")}</th>`}<th></th></tr></thead><tbody>
+    ${TIPOS.map(k => `<tr><td>${nomTipo(k)}<div class="mute peq">${k === "pedidos" ? t("cliente → aplicación") : t("SAP → aplicación")}</div></td>${srv ? `<td><input data-cfg="rutas.${k}" value="${esc(c.rutas[k])}" aria-label="${t("Ruta")}: ${nomTipo(k)}"></td><td><input type="number" min="0" data-cfg="intervalos.${k}" value="${esc(c.intervalos[k])}" style="max-width:110px" aria-label="${t("Minutos")}: ${nomTipo(k)}"></td><td class="mute">${fch(S.ultima_sync[k])}</td>` : `<td class="mono">${S[k] ? S[k].length : "—"}</td>`}
+      <td><div class="fila">${srv ? `<button class="min" data-act="sync" data-t="${k}">${t("Leer ahora")}</button>` : ""}<input type="file" id="f-${k}" accept=".json,.csv,.txt" multiple hidden data-tipo="${k}"><button class="min" data-act="elegir" data-t="${k}">${t("Cargar archivo")}</button></div></td></tr>`).join("")}
+    ${srv ? `<tr><td>${t("Pedidos para SAP")}<div class="mute peq">${t("aplicación → SAP (JSON)")}</div></td><td><input data-cfg="rutas.salida" value="${esc(c.rutas.salida)}" aria-label="${t("Ruta de salida")}"></td><td class="mute">${t("Al enviar cada pedido")}</td><td></td><td></td></tr>` : ""}
+    </tbody></table></div></div>
+  <div class="panel"><h2>${t("Reglas de cálculo")}</h2><div class="rej">${campo("logistica.dias_preparacion","Días de preparación en almacén","number",'min="0"')}
+    <label>${t("Días de tránsito por distancia (km:días)")}<input id="cfg-tramos" value="${esc(c.logistica.tramos.map(x => x.join(":")).join(", "))}"></label>${campo("prefijo","Prefijo del número de pedido")}${campo("moneda","Moneda")}</div>
+    <div class="fila" style="margin-top:12px">${campo("logistica.omitir_fin_semana","Contar solo días hábiles (lunes a viernes)","checkbox")}<button class="pri" data-act="guardar-cfg">${srv ? t("Guardar configuración") : t("Guardar reglas")}</button></div></div>
+  <div class="panel"><h2>${t("Bitácora")}</h2><div class="scroll"><table><thead><tr><th>${t("Fecha")}</th><th>${t("Información")}</th><th>${t("Archivo")}</th><th>${t("Resultado")}</th></tr></thead><tbody>
+    ${(S.bitacora || []).slice(0, 60).map(b => `<tr><td class="mute">${fch(b.fecha)}</td><td>${esc(nomTipo(b.tipo))}</td><td class="mono">${esc(b.archivo)}</td><td><span class="${b.ok ? "e-g" : "e-b"}">${b.ok ? t("Correcto") : t("Error")}</span> · ${esc(tm(b.mensaje))}</td></tr>`).join("") || `<tr><td colspan="4" class="mute">${t("Sin movimientos.")}</td></tr>`}
+    </tbody></table></div></div>`;
+}
+function leerCfg() { const c = copia(S.config);
+  document.querySelectorAll("[data-cfg]").forEach(el => { const ks = el.dataset.cfg.split("."), u = ks.pop(), o = ks.reduce((x, k) => x[k], c);
+    o[u] = el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value || 0) : el.value.trim(); });
+  const tr = ($("#cfg-tramos").value || "").split(",").map(x => x.split(":").map(y => Number(y.trim()))).filter(x => x.length === 2 && x.every(n => !isNaN(n) && n >= 0)).sort((a, b) => a[0] - b[0]);
+  if (!tr.length) throw new Error(t("Escribe los tramos como km:días separados por coma, por ejemplo 150:1, 500:2"));
+  c.logistica.tramos = tr; if (!c.prefijo) throw new Error(t("El prefijo no puede quedar vacío")); return c; }
+
+/* ---- Formatos ---- */
+const DESC = {KUNNR:"Número de cliente", NAME1:"Nombre", KUNWE:"Destinatario de mercancía; vacío en la dirección principal", STRAS:"Calle y número", ORT01:"Ciudad", REGIO:"Provincia o estado", PSTLZ:"Código postal (ubica la entrega)",
+  MATNR:"Código de material SAP", MAKTX:"Descripción del material", WERKS:"Almacén / centro", LGORT:"Ubicación dentro del almacén", LABST:"Existencia de libre utilización", MEINS:"Unidad de medida",
+  KBETR:"Precio unitario", KONWA:"Moneda", DATAB:"Válido desde (AAAAMMDD)", DATBI:"Válido hasta (AAAAMMDD)", KDMAT:"Código que usa el cliente", LAT:"Latitud (opcional; si falta se usa el código postal)", LON:"Longitud",
+  ID_PEDIDO:"Número de pedido de esta aplicación", BSTKD:"Pedido del cliente (se usa si no viene ID_PEDIDO)", VBELN:"Pedido de venta en SAP", STATUS:"CREADO, EN_SURTIDO, EMBARCADO, ENTREGADO, FACTURADO, RECHAZADO, BLOQUEADO u otro texto",
+  FECHA:"Fecha y hora del estatus (AAAA-MM-DDThh:mm:ss)", TEXTO:"Comentario", MATERIAL:"Código SAP, código del cliente o descripción exacta", CANTIDAD:"Cantidad pedida", DIRECCION:"Destinatario SAP, dirección con código postal, o vacío para la principal"};
+function vFormatos() {
+  const ej = {pedidos:`{"customer":"100040","customer_po":"PO-45001999","delivery_address":"100042",\n "items":[{"material":"PIS-BOLT-050","quantity":120},{"material":"10000420","quantity":60}]}\n\ncustomer,customer_po,material,quantity,delivery_address\n100020,QL-PO-5521,QL-7731,500,100021\n100050,MTF-11300,10000550,300,"45 Wyse Rd, Dartmouth, NS B2Y 3Z1"`,
+    estatus:`[{"ID_PEDIDO":"PED-000001","VBELN":"0080012345","STATUS":"EMBARCADO","FECHA":"2026-11-16T16:05:00","TEXTO":"Waybill 7781234"}]`};
+  const p = S.pedidos.find(x => !E.tieneErrores(x));
+  return cab(t("Formatos de archivo"), t("Todos los archivos pueden venir en JSON (lista de objetos) o CSV con encabezado (coma, punto y coma o tabulador). Cada columna acepta su nombre SAP o cualquiera de sus alias en español o inglés; no importan mayúsculas ni acentos.")) +
+  ["pedidos", ...TIPOS_M, "estatus"].map(k => `<div class="panel"><h2>${nomTipo(k)}</h2><div class="scroll"><table><thead><tr><th>${t("Campo")}</th><th>${t("Alias aceptados")}</th><th>${t("Obligatorio")}</th><th>${t("Contenido")}</th></tr></thead><tbody>
+    ${Object.entries(E.ESQ[k]).map(([f, al]) => `<tr><td class="mono">${f}</td><td class="mono mute">${al.join(", ")}</td><td>${E.REQ[k].includes(f) ? t("Sí") : ""}</td><td>${t(DESC[f] || "")}</td></tr>`).join("")}</tbody></table></div>${ej[k] ? `<pre>${esc(ej[k])}</pre>` : ""}
+    ${k === "inventario" ? `<p class="mute peq">${t("Cada archivo reemplaza el inventario de los almacenes que trae; los demás almacenes no cambian.")}</p>` : ""}${k === "clientes" ? `<p class="mute peq">${t("Una fila por dirección de entrega. Cada archivo reemplaza todas las direcciones de los clientes que trae.")}</p>` : ""}
+    ${k === "estatus" ? `<p class="mute peq">${t("Los valores de STATUS son códigos fijos; la pantalla los muestra traducidos.")}</p>` : ""}</div>`).join("") +
+  `<div class="panel"><h2>${t("Salida: pedido para SAP (JSON)")}</h2><p class="mute">${t("Un archivo por pedido, con nombre PEDIDO_<número>_<fecha y hora>.json. Se sube con extensión temporal y se renombra al terminar, para que SAP nunca lea un archivo incompleto.").replace(/</g,"&lt;")}</p><pre>${esc(JSON.stringify(p ? E.jsonSap(p) : {}, null, 2))}</pre></div>`;
+}
+
+/* ---- Usuarios (solo administrador, modo servidor) ---- */
+function vUsuarios() {
+  const e = usrEd || {usuario:"", nombre:"", rol:"cliente", KUNNR:"", activo:true, nuevo:true}, cls = [...new Map(S.clientes.map(r => [r.KUNNR, r])).values()];
+  const nomCli = k => (S.clientes.find(r => r.KUNNR === k) || {}).NAME1 || "";
+  return cab(t("Usuarios"), t("Cada persona entra con su propio usuario. Un usuario con perfil Cliente solo ve y captura los pedidos de su cliente SAP; Ventas ve todos los pedidos; Administrador además configura el SFTP, los datos maestros y los usuarios.")) +
+  `<div class="panel"><h2>${e.nuevo ? t("Usuario nuevo") : t("Editar {0}", esc(e.usuario))}</h2><div class="rej">
+    <label>${t("Usuario")}<input id="u-usuario" value="${esc(e.usuario)}" ${e.nuevo ? "" : "readonly"} autocomplete="off" placeholder="${t("letras, números, punto o guion")}"></label>
+    <label>${t("Nombre")}<input id="u-nombre" value="${esc(e.nombre)}" autocomplete="off"></label>
+    <label>${t("Perfil")}<select id="u-rol">${Object.entries(PERFIL).reverse().map(([k, tt]) => `<option value="${k}" ${e.rol === k ? "selected" : ""}>${t(tt)}</option>`).join("")}</select></label>
+    <label>${t("Cliente SAP (solo perfil Cliente)")}<input id="u-kunnr" list="l-cli-u" value="${esc(e.KUNNR)}" autocomplete="off"></label>
+    <label>${t("Contraseña")}<input id="u-password" type="password" autocomplete="new-password" placeholder="${e.nuevo ? t("Mínimo 8 caracteres") : t("Vacía para no cambiarla")}"></label></div>
+    <datalist id="l-cli-u">${cls.map(r => `<option value="${esc(r.KUNNR)}">${esc(r.NAME1)}</option>`).join("")}</datalist>
+    <div class="fila" style="margin-top:12px"><label class="chk"><input type="checkbox" id="u-activo" ${e.activo ? "checked" : ""}>${t("Puede entrar a la aplicación")}</label>
+    <button class="pri" data-act="usr-guardar">${e.nuevo ? t("Crear usuario") : t("Guardar cambios")}</button>${e.nuevo ? "" : `<button data-act="usr-nuevo">${t("Cancelar")}</button>`}</div></div>
+  <div class="panel"><h2>${t("Usuarios registrados")}</h2><div class="scroll"><table><thead><tr><th>${t("Usuario")}</th><th>${t("Nombre")}</th><th>${t("Perfil")}</th><th>${t("Cliente SAP")}</th><th>${t("Acceso")}</th><th></th></tr></thead><tbody>
+  ${usuarios.map(u => `<tr><td class="mono">${esc(u.usuario)}</td><td>${esc(u.nombre)}</td><td>${t(PERFIL[u.rol])}</td><td>${u.KUNNR ? `<span class="mono">${esc(u.KUNNR)}</span> ${esc(nomCli(u.KUNNR))}` : "—"}</td>
+    <td>${u.activo ? `<span class="pil e-g">${t("Activo")}</span>` : `<span class="pil e-n">${t("Desactivado")}</span>`}</td>
+    <td>${u.fijo ? `<span class="mute peq">${t("Se cambia en las variables de entorno")}</span>` : `<div class="fila"><button class="min" data-act="usr-editar" data-u="${esc(u.usuario)}">${t("Editar")}</button>${u.usuario === S.usuario.usuario ? "" : `<button class="min mal" data-act="usr-pedir-borrar" data-u="${esc(u.usuario)}">${t("Eliminar")}</button>`}</div>`}</td></tr>`).join("") || `<tr><td colspan="6" class="mute">${t("Aún no hay usuarios.")}</td></tr>`}
+  </tbody></table></div></div>`;
+}
+let accesoEstado = null;
+function pantallaAcceso(instalar, msg) {
+  accesoEstado = {instalar, msg}; document.documentElement.lang = LANG;
+  document.body.classList.add("acceso"); $("#cajon").hidden = true; cerrarModal();
+  $("#vista").innerHTML = `<div class="panel entrada"><div class="fila" style="justify-content:space-between"><h1>${t("Pedidos SAP")}</h1>${btnIdioma()}</div><p class="mute">${instalar ? t("Primer arranque: crea el usuario administrador.") : t("Entra con tu usuario.")}</p>
+    ${msg ? `<div class="nota err">${esc(tm(msg))}</div>` : ""}<form id="f-acceso" data-instalar="${instalar ? 1 : ""}">
+    <label>${t("Usuario")}<input id="a-usuario" autocomplete="username" required></label>${instalar ? `<label>${t("Nombre")}<input id="a-nombre" autocomplete="name"></label>` : ""}
+    <label>${t("Contraseña")}<input id="a-password" type="password" autocomplete="${instalar ? "new-password" : "current-password"}" required ${instalar ? 'minlength="8"' : ""}></label>
+    <button class="pri" type="submit">${instalar ? t("Crear administrador y entrar") : t("Entrar")}</button></form></div>`;
+  const u = $("#a-usuario"); if (u) u.focus();
+}
+document.addEventListener("submit", async ev => { if (ev.target.id !== "f-acceso") return; ev.preventDefault();
+  const inst = !!ev.target.dataset.instalar, d = {usuario:$("#a-usuario").value, password:$("#a-password").value, nombre:inst ? $("#a-nombre").value : ""};
+  try { if (inst) await Api.f("POST", "instalar", d); await Api.f("POST", "login", d);
+    await B.estado(); document.body.classList.remove("acceso"); capNueva(); abierto = null; ruta(); }
+  catch (e) { pantallaAcceso(inst, e.message); } });
+
+function pintar() {
+  if (document.body.classList.contains("acceso")) return;
+  document.documentElement.lang = LANG; document.title = t("Pedidos SAP");
+  pintarMenu();
+  const foco = document.activeElement && document.activeElement.id, pos = foco && document.activeElement.selectionStart;
+  $("#vista").innerHTML = ({pedidos:vPedidos, captura:vCaptura, recepcion:vRecepcion, inventario:vInventario, maestros:vMaestros, sap:vSap, formatos:vFormatos, usuarios:vUsuarios}[vista])();
+  if (foco && $("#" + foco) && ["buscar","buscar-inv"].includes(foco)) { const el = $("#" + foco); el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) {} }
+  pintarCajon();
+}
+async function ruta() { const h = location.hash.slice(1); vista = vistasVisibles().some(v => v[0] === h) ? h : "pedidos"; if (vista !== "pedidos") abierto = null;
+  if (vista === "usuarios") { try { usuarios = await Api.f("GET", "usuarios"); } catch (e) { tost(e.message, true); } }
+  pintar(); if (vista === "captura") previsualizar(); }
+const confirmar = (titulo, texto, act, attrs, boton) => modal(`<h2>${titulo}</h2><p>${texto}</p><div class="fila" style="justify-content:flex-end"><button data-act="cerrar-modal">${t("Conservar")}</button><button class="pri" data-act="${act}" ${attrs}>${boton}</button></div>`);
+
+document.addEventListener("click", async ev => {
+  if (ev.target.id === "velo") return cerrarModal();
+  const el = ev.target.closest("[data-act]"); if (!el) return; const a = el.dataset.act, id = el.dataset.id;
+  if (a === "ir") location.hash = el.dataset.v;
+  else if (a === "idioma") { LANG = LANG === "es" ? "en" : "es"; try { localStorage.setItem("pedidosSAP.lang", LANG); } catch (e) {}
+    if (document.body.classList.contains("acceso")) pantallaAcceso(accesoEstado.instalar, accesoEstado.msg); else { pintar(); if (vista === "captura") previsualizar(); } }
+  else if (a === "filtro") { filtro.est = el.dataset.e; pintar(); }
+  else if (a === "abrir") { abierto = id; pintarCajon(); }
+  else if (a === "cerrar-cajon") { abierto = null; pintarCajon(); }
+  else if (a === "cerrar-modal") cerrarModal();
+  else if (a === "ver-json") verJson(S.pedidos.find(p => p.id === id));
+  else if (a === "copiar-json") { try { await navigator.clipboard.writeText($("#json-txt").value); tost(t("JSON copiado")); } catch (e) { $("#json-txt").select(); tost(t("Selecciona el texto y cópialo con Ctrl+C"), true); } }
+  else if (a === "bajar-json") descargar(el.dataset.nom, $("#json-txt").value);
+  else if (a === "enviar") { const p = await hacer(() => B.enviar(id), r => S.modo === "servidor" ? t("{0} enviado a SAP: {1}", id, r.archivo_sap) : t("{0} listo para SAP", id)); if (p && S.modo === "local") verJson(S.pedidos.find(x => x.id === id), true); }
+  else if (a === "recalcular") hacer(() => B.recalcular(id), t("{0} recalculado", id));
+  else if (a === "editar") { const p = S.pedidos.find(x => x.id === id), e = p.entrada, esDest = e.DIRECCION === "" || S.clientes.some(r => r.KUNNR === p.KUNNR && r.KUNWE === e.DIRECCION);
+    cap = {id, KUNNR:p.KUNNR, BSTKD:e.BSTKD, dirSel:esDest ? e.DIRECCION : "__otra__", dirTxt:esDest ? "" : e.DIRECCION, pos:p.posiciones.map((x, i) => ({MATERIAL:e.posiciones[i].MATERIAL ?? "", CANTIDAD:e.posiciones[i].CANTIDAD ?? "", WERKS:x.forzado ? x.WERKS : ""})), prev:null};
+    abierto = null; location.hash = "captura"; }
+  else if (a === "pedir-eliminar") confirmar(t("Eliminar {0}", esc(id)), t("El borrador se borra y su inventario comprometido se libera. No se puede deshacer."), "eliminar", `data-id="${esc(id)}"`, t("Eliminar pedido"));
+  else if (a === "eliminar") { cerrarModal(); abierto = null; hacer(() => B.eliminar(id), t("{0} eliminado", id)); }
+  else if (a === "mas-pos") { cap.pos.push({MATERIAL:"", CANTIDAD:"", WERKS:""}); pintar(); }
+  else if (a === "quitar-pos") { cap.pos.splice(Number(el.dataset.i), 1); pintar(); previsualizar(); }
+  else if (a === "cap-limpiar") { capNueva(); pintar(); }
+  else if (a === "guardar") guardarCaptura(false);
+  else if (a === "guardar-enviar") guardarCaptura(true);
+  else if (a === "subir-ped") { const fs = [...$("#f-ped").files]; if (!fs.length) return tost(t("Elige al menos un archivo"), true); recRes = await importarArchivos("pedidos", fs); pintar(); }
+  else if (a === "pegar-ped") { const x = $("#t-ped").value, nom = t("contenido pegado"); if (!x.trim()) return tost(t("Pega el contenido del archivo"), true);
+    try { recRes = [{nombre:nom, ok:true, msg:await B.importar("pedidos", x.trim()[0] === "[" || x.trim()[0] === "{" ? "pasted.json" : "pasted.csv", x)}]; } catch (e) { recRes = [{nombre:nom, ok:false, msg:e.message}]; }
+    if (B === Api) await B.estado(); pintar(); }
+  else if (a === "tab") { tabM = el.dataset.t; pintar(); }
+  else if (a === "subir-mae") { const fs = [...$("#f-mae").files]; if (!fs.length) return tost(t("Elige al menos un archivo"), true); const r = await importarArchivos(tabM, fs); r.forEach(x => tost(`${x.nombre}: ${tm(x.msg)}`, !x.ok)); pintar(); }
+  else if (a === "elegir") $("#f-" + el.dataset.t).click();
+  else if (a === "sync") hacer(() => B.sync(el.dataset.t), m => `${nomTipo(el.dataset.t)}: ${tm(m)}`);
+  else if (a === "probar") hacer(async () => { await B.guardarConfig(leerCfg()); return B.probar(); }, m => m);
+  else if (a === "guardar-cfg") hacer(() => B.guardarConfig(leerCfg()), t("Configuración guardada"));
+  else if (a === "demo") hacer(() => B.demo(), t("Datos de demostración cargados"));
+  else if (a === "vaciar") confirmar(t("Vaciar datos"), t("Se borran de este navegador los datos maestros, el inventario y todos los pedidos."), "vaciar-si", "", t("Vaciar todo"));
+  else if (a === "salir") { try { await Api.f("POST", "logout"); } catch (e) {} S.pedidos = []; pantallaAcceso(false); }
+  else if (a === "usr-nuevo") { usrEd = null; pintar(); }
+  else if (a === "usr-editar") { usrEd = {...usuarios.find(u => u.usuario === el.dataset.u), nuevo:false}; pintar(); $("#u-nombre").focus(); }
+  else if (a === "usr-guardar") { const d = {usuario:$("#u-usuario").value, nombre:$("#u-nombre").value, rol:$("#u-rol").value, KUNNR:$("#u-kunnr").value, password:$("#u-password").value, activo:$("#u-activo").checked, nuevo:!usrEd};
+    await hacer(async () => { await Api.f("PUT", "usuarios", d); usuarios = await Api.f("GET", "usuarios"); usrEd = null; }, t("Usuario {0} guardado", d.usuario.trim().toLowerCase())); }
+  else if (a === "usr-pedir-borrar") confirmar(t("Eliminar usuario {0}", esc(el.dataset.u)), t("Ya no podrá entrar. Sus pedidos se conservan."), "usr-borrar", `data-u="${esc(el.dataset.u)}"`, t("Eliminar usuario"));
+  else if (a === "usr-borrar") { cerrarModal(); hacer(async () => { await Api.f("DELETE", "usuarios/" + encodeURIComponent(el.dataset.u)); usuarios = await Api.f("GET", "usuarios"); }, t("Usuario eliminado")); }
+  else if (a === "vaciar-si") { cerrarModal(); await Local.vaciar(); capNueva(); pintar(); tost(t("Datos vaciados")); }
+});
+document.addEventListener("keydown", ev => { if (ev.key === "Enter" && ev.target.matches("tr.clic")) ev.target.click(); if (ev.key === "Escape") { if (!$("#velo").hidden) cerrarModal(); else if (abierto) { abierto = null; pintarCajon(); } } });
+document.addEventListener("input", ev => { const x = ev.target;
+  if (x.id === "buscar") { filtro.q = x.value; pintar(); } else if (x.id === "buscar-inv") { qInv = x.value; pintar(); }
+  else if (x.id === "c-cli") { cap.KUNNR = x.value; if (S.clientes.some(r => r.KUNNR === x.value.trim())) { cap.dirSel = ""; $("#c-dir").innerHTML = opcionesDir(); $("#c-otra").hidden = true; } previsualizar(); }
+  else if (x.id === "c-ped") { cap.BSTKD = x.value; previsualizar(); }
+  else if (x.id === "c-dirtxt") { cap.dirTxt = x.value; previsualizar(); }
+  else if (x.dataset.pos != null) { const p = cap.pos[Number(x.dataset.pos)]; p[x.dataset.k] = x.value; if (x.dataset.k === "MATERIAL") p.WERKS = ""; previsualizar(); } });
+document.addEventListener("change", async ev => { const x = ev.target;
+  if (x.id === "c-dir") { cap.dirSel = x.value; $("#c-otra").hidden = x.value !== "__otra__"; cap.pos.forEach(p => p.WERKS = ""); previsualizar(); }
+  else if (x.dataset.alm != null) { const act = cap.pos.filter(p => String(p.MATERIAL).trim() || String(p.CANTIDAD).trim()); act[Number(x.dataset.alm)].WERKS = x.value; previsualizar(); }
+  else if (x.type === "file" && x.dataset.tipo) { const r = await importarArchivos(x.dataset.tipo, [...x.files]); r.forEach(y => tost(`${y.nombre}: ${tm(y.msg)}`, !y.ok)); pintar(); } });
+window.addEventListener("hashchange", ruta);
+
+(async function iniciar() {
+  let servidor = false;
+  if (location.protocol.startsWith("http")) { try { const c = new AbortController(); setTimeout(() => c.abort(), 2500);
+    const r = await fetch("api/ping", {signal:c.signal}); servidor = r.ok && (await r.json()).app === "pedidos-sap"; } catch (e) {} }
+  B = servidor ? Api : Local;
+  if (servidor) { S = {pedidos:[], clientes:[], inventario:[], modo:"servidor"};
+    try { await Api.f("GET", "sesion"); await B.estado(); ruta(); } catch (e) { pantallaAcceso(!!(e.datos && e.datos.instalar)); } }
+  else { await B.estado(); ruta(); }
+  if (servidor) setInterval(async () => { const ae = document.activeElement; if (ae && /INPUT|SELECT|TEXTAREA/.test(ae.tagName)) return; if (!$("#velo").hidden || document.body.classList.contains("acceso") || !["pedidos","inventario"].includes(vista)) return;
+    try { await B.estado(); pintar(); } catch (e) {} }, 30000);
+})();
+</script>
+</body>
+</html>

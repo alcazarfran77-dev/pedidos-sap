@@ -1,0 +1,92 @@
+[
+  {
+    "KUNNR": "100010",
+    "NAME1": "Northline Fasteners Ltd.",
+    "KUNWE": "",
+    "STRAS": "480 Carlaw Ave",
+    "ORT01": "Toronto",
+    "REGIO": "ON",
+    "PSTLZ": "M4M 2T3"
+  },
+  {
+    "KUNNR": "100010",
+    "NAME1": "Northline Fasteners - Ottawa Branch",
+    "KUNWE": "100011",
+    "STRAS": "2255 St. Laurent Blvd",
+    "ORT01": "Ottawa",
+    "REGIO": "ON",
+    "PSTLZ": "K1G 4K3"
+  },
+  {
+    "KUNNR": "100020",
+    "NAME1": "Quincaillerie Laurentides Inc.",
+    "KUNWE": "",
+    "STRAS": "9150 boul. de l'Acadie",
+    "ORT01": "Montréal",
+    "REGIO": "QC",
+    "PSTLZ": "H4N 2T2"
+  },
+  {
+    "KUNNR": "100020",
+    "NAME1": "Quincaillerie Laurentides - Québec DC",
+    "KUNWE": "100021",
+    "STRAS": "1175 av. Galilée",
+    "ORT01": "Québec",
+    "REGIO": "QC",
+    "PSTLZ": "G1P 4G1"
+  },
+  {
+    "KUNNR": "100030",
+    "NAME1": "Pacific Coast Building Supplies Ltd.",
+    "KUNWE": "",
+    "STRAS": "1575 Venables St",
+    "ORT01": "Vancouver",
+    "REGIO": "BC",
+    "PSTLZ": "V5L 2G8"
+  },
+  {
+    "KUNNR": "100030",
+    "NAME1": "Pacific Coast Building Supplies - Kelowna",
+    "KUNWE": "100031",
+    "STRAS": "1960 Windsor Rd",
+    "ORT01": "Kelowna",
+    "REGIO": "BC",
+    "PSTLZ": "V1Y 4R5"
+  },
+  {
+    "KUNNR": "100040",
+    "NAME1": "Prairie Industrial Supply Ltd.",
+    "KUNWE": "",
+    "STRAS": "2835 23 St NE",
+    "ORT01": "Calgary",
+    "REGIO": "AB",
+    "PSTLZ": "T2E 7A4"
+  },
+  {
+    "KUNNR": "100040",
+    "NAME1": "Prairie Industrial Supply - Edmonton Plant",
+    "KUNWE": "100041",
+    "STRAS": "17404 111 Ave NW",
+    "ORT01": "Edmonton",
+    "REGIO": "AB",
+    "PSTLZ": "T5S 0A2"
+  },
+  {
+    "KUNNR": "100040",
+    "NAME1": "Prairie Industrial Supply - Winnipeg Plant",
+    "KUNWE": "100042",
+    "STRAS": "1425 Erin St",
+    "ORT01": "Winnipeg",
+    "REGIO": "MB",
+    "PSTLZ": "R3E 2S9"
+  },
+  {
+    "KUNNR": "100050",
+    "NAME1": "Maritime Tool & Fastener Co.",
+    "KUNWE": "",
+    "STRAS": "3695 Kempt Rd",
+    "ORT01": "Halifax",
+    "REGIO": "NS",
+    "PSTLZ": "B3K 4X6"
+  }
+]

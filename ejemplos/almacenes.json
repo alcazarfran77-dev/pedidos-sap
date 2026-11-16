@@ -1,0 +1,34 @@
+[
+  {
+    "WERKS": "1000",
+    "NAME1": "Toronto DC",
+    "ORT01": "Mississauga",
+    "PSTLZ": "L5T 2N5",
+    "LAT": 43.66,
+    "LON": -79.68
+  },
+  {
+    "WERKS": "2000",
+    "NAME1": "Montréal DC",
+    "ORT01": "Laval",
+    "PSTLZ": "H7L 5A7",
+    "LAT": 45.6,
+    "LON": -73.75
+  },
+  {
+    "WERKS": "3000",
+    "NAME1": "Calgary DC",
+    "ORT01": "Calgary",
+    "PSTLZ": "T2C 4T8",
+    "LAT": 50.98,
+    "LON": -113.98
+  },
+  {
+    "WERKS": "4000",
+    "NAME1": "Vancouver DC",
+    "ORT01": "Delta",
+    "PSTLZ": "V4G 1E2",
+    "LAT": 49.14,
+    "LON": -123.01
+  }
+]

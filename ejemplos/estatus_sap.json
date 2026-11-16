@@ -1,0 +1,24 @@
+[
+  {
+    "ID_PEDIDO": "PED-000001",
+    "VBELN": "0080012345",
+    "STATUS": "CREADO",
+    "FECHA": "2026-11-16T09:10:00",
+    "TEXTO": "Sales order created"
+  },
+  {
+    "ID_PEDIDO": "PED-000001",
+    "VBELN": "0080012345",
+    "STATUS": "EN_SURTIDO",
+    "FECHA": "2026-11-16T11:40:00",
+    "TEXTO": "Picking started"
+  },
+  {
+    "BSTKD": "NF-2026-0931",
+    "KUNNR": "100010",
+    "VBELN": "0080012346",
+    "STATUS": "EMBARCADO",
+    "FECHA": "2026-11-16T16:05:00",
+    "TEXTO": "Waybill 7781234"
+  }
+]

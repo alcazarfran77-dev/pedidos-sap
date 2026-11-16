@@ -1,0 +1,82 @@
+[
+  {
+    "MATNR": "10000101",
+    "KUNNR": "",
+    "KBETR": 185.5,
+    "KONWA": "CAD",
+    "DATAB": "20260101",
+    "DATBI": "99991231"
+  },
+  {
+    "MATNR": "10000102",
+    "KUNNR": "",
+    "KBETR": 92.0,
+    "KONWA": "CAD",
+    "DATAB": "20260101",
+    "DATBI": "99991231"
+  },
+  {
+    "MATNR": "10000205",
+    "KUNNR": "",
+    "KBETR": 264.75,
+    "KONWA": "CAD",
+    "DATAB": "20260101",
+    "DATBI": "99991231"
+  },
+  {
+    "MATNR": "10000310",
+    "KUNNR": "",
+    "KBETR": 18.9,
+    "KONWA": "CAD",
+    "DATAB": "20260101",
+    "DATBI": "99991231"
+  },
+  {
+    "MATNR": "10000311",
+    "KUNNR": "",
+    "KBETR": 46.3,
+    "KONWA": "CAD",
+    "DATAB": "20260101",
+    "DATBI": "99991231"
+  },
+  {
+    "MATNR": "10000420",
+    "KUNNR": "",
+    "KBETR": 58.4,
+    "KONWA": "CAD",
+    "DATAB": "20260101",
+    "DATBI": "99991231"
+  },
+  {
+    "MATNR": "10000550",
+    "KUNNR": "",
+    "KBETR": 14.2,
+    "KONWA": "CAD",
+    "DATAB": "20260101",
+    "DATBI": "99991231"
+  },
+  {
+    "MATNR": "10000675",
+    "KUNNR": "",
+    "KBETR": 39.8,
+    "KONWA": "CAD",
+    "DATAB": "20260101",
+    "DATBI": "99991231"
+  },
+  {
+    "MATNR": "10000101",
+    "KUNNR": "100040",
+    "KBETR": 171.0,
+    "KONWA": "CAD",
+    "DATAB": "20260701",
+    "DATBI": "20261231"
+  },
+  {
+    "MATNR": "10000310",
+    "KUNNR": "100010",
+    "KBETR": 17.25,
+    "KONWA": "CAD",
+    "DATAB": "20260701",
+    "DATBI": "20261231"
+  }
+]

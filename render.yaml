@@ -1,9 +1,17 @@
 # Blueprint de Render: en el panel, New > Blueprint y elegir este repositorio.
+#
+# Configuración para el PLAN GRATUITO, con el SFTP desactivado:
+#   - El servicio se duerme tras 15 minutos sin visitas y tarda cerca de un minuto en despertar.
+#   - No hay disco: la base SQLite se borra en cada reinicio, despliegue o suspensión
+#     (pedidos, usuarios creados en la aplicación y datos cargados a mano).
+#   - CARGAR_DEMO=1 vuelve a cargar los datos de ejemplo cada vez que arranca con la base vacía.
+#
+# Para pasar a producción con SFTP, ver DESPLIEGUE.md (plan starter + disco + SFTP_HABILITADO=1).
 services:
   - type: web
     name: pedidos-sap
     runtime: python
-    plan: starter            # el plan gratuito no admite disco y se duerme: ver README
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /healthz
@@ -11,15 +19,11 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
-      - key: PEDIDOS_DB
-        value: /var/data/pedidos.db
-      - key: APP_USER        # usuario del administrador
+      - key: SFTP_HABILITADO   # 0 = sin conexión con SAP; archivos a mano
+        value: "0"
+      - key: CARGAR_DEMO       # 1 = datos de ejemplo de Canadá al arrancar con la base vacía
+        value: "1"
+      - key: APP_USER          # usuario del administrador
         sync: false
-      - key: APP_PASSWORD    # contraseña del administrador
+      - key: APP_PASSWORD      # contraseña del administrador
         sync: false
-      - key: SFTP_PASSWORD   # contraseña del SFTP de SAP (opcional si se usa llave)
-        sync: false
-    disk:
-      name: datos
-      mountPath: /var/data
-      sizeGB: 1

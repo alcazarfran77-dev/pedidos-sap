@@ -33,12 +33,19 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Abrir `http://servidor:8000`, entrar a **Intercambio con SAP**, capturar host, usuario, contraseña o llave, rutas y minutos
-de lectura, y pulsar **Probar conexión**. Variables de entorno opcionales: `PEDIDOS_DB` (ruta de la base) y
-`SFTP_PASSWORD` (evita guardar la contraseña en la base).
+de lectura, y pulsar **Probar conexión**. Variables de entorno:
+
+| Variable | Valor por defecto | Uso |
+|---|---|---|
+| `SFTP_HABILITADO` | `1` | `0` apaga toda conexión con SAP: archivos a mano y JSON descargable |
+| `CARGAR_DEMO` | vacío | `1` carga los datos de ejemplo al arrancar si la base está vacía |
+| `PEDIDOS_DB` | `pedidos.db` | Ruta de la base SQLite |
+| `SFTP_PASSWORD` | vacío | Contraseña del SFTP, para no guardarla en la base |
+| `APP_USER` / `APP_PASSWORD` | vacío | Administrador inicial (obligatorio en Render) |
 
 El medio «Carpeta local o compartida» usa el mismo contrato de carpetas sin SFTP; sirve para pruebas o para una unidad de red.
 
-Para GitHub y Render, ver `DESPLIEGUE.md`.
+Para GitHub y Render, ver `DESPLIEGUE.md`. El `render.yaml` incluido usa el plan gratuito con el SFTP desactivado.
 
 ## Usuarios y perfiles (versión con servidor)
 

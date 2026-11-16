@@ -17,7 +17,9 @@ GALLETA = "sesion"
 @asynccontextmanager
 async def vida(app):
     detener = threading.Event()
-    threading.Thread(target=sv.ciclo_programado, args=(detener,), daemon=True).start()
+    sv.cargar_demo_si_vacio()
+    if sv.sftp_habilitado():
+        threading.Thread(target=sv.ciclo_programado, args=(detener,), daemon=True).start()
     yield
     detener.set()
 

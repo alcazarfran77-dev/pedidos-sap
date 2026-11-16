@@ -1,5 +1,8 @@
 # Subir a GitHub y desplegar en Render
 
+La configuración actual (`render.yaml`) es para el **plan gratuito de Render con el SFTP desactivado**: sirve para probar
+el flujo con usuarios reales. La sección 4 explica cómo pasar a producción con SFTP.
+
 ## 1. Repositorio en GitHub (desde el navegador, sin instalar nada)
 
 1. En github.com: **New repository** → nombre `pedidos-sap` → **Private** → sin README ni .gitignore → **Create repository**.
@@ -12,36 +15,72 @@
 
 No subas nunca `pedidos.db`, llaves privadas ni contraseñas: `.gitignore` ya los excluye y las contraseñas van en Render.
 
-## 2. Servicio en Render
+## 2. Servicio en Render (plan gratuito)
 
 1. En dashboard.render.com: **New → Blueprint** → conecta tu cuenta de GitHub y elige el repositorio `pedidos-sap`.
-2. Render lee `render.yaml` y te pide tres valores:
-   - `APP_USER` y `APP_PASSWORD`: usuario y contraseña del **administrador** (usa una contraseña larga). Los demás
-     usuarios se crean después, dentro de la aplicación.
-   - `SFTP_PASSWORD`: contraseña del SFTP de SAP. Si entras con llave, déjala vacía.
+2. Render lee `render.yaml` y te pide dos valores: `APP_USER` y `APP_PASSWORD`, usuario y contraseña del **administrador**
+   (usa una contraseña larga).
 3. **Apply**. Al terminar, la aplicación queda en `https://pedidos-sap-xxxx.onrender.com`.
-4. Entra con el administrador, ve a **Intercambio con SAP**, elige el medio **SFTP**, captura servidor, puerto,
-   usuario, rutas y minutos de lectura, guarda y pulsa **Probar conexión**. El campo de contraseña puede quedar vacío:
-   se toma de `SFTP_PASSWORD`.
+4. Entra con el administrador. La aplicación arranca con los datos de ejemplo de Canadá (`CARGAR_DEMO=1`). Para usar tus
+   datos, carga los archivos de SAP en **Intercambio con SAP** (formatos en **Formatos de archivo**).
+5. En **Usuarios** crea un usuario con perfil Cliente por cada cliente que vaya a probar.
 
 Cada cambio que subas a GitHub se despliega solo.
 
-5. Cuando ya hayan llegado los clientes de SAP, ve a **Usuarios** y crea un usuario con perfil Cliente por cada cliente
-   (o varios por cliente), ligado a su número de cliente SAP. Entrégales la dirección, su usuario y su contraseña.
+### Cómo funciona sin SFTP (`SFTP_HABILITADO=0`)
 
-## 3. Lo que hay que saber de Render
+- No hay lecturas programadas ni conexión con SAP; la pantalla de conexión no aparece.
+- Clientes, inventario, precios, almacenes y estatus se cargan a mano en **Intercambio con SAP**.
+- Al enviar un pedido queda en «Enviado a SAP» y se genera su JSON. El administrador o ventas lo descargan desde el
+  monitor con **Ver JSON para SAP**. El cliente no ve ese paso.
 
-- **Plan**: `render.yaml` usa el plan de pago más pequeño (`starter`) con un disco de 1 GB en `/var/data`, donde vive la base
-  `pedidos.db`. Con el plan gratuito el servicio se duerme tras 15 minutos sin visitas (y deja de leer el SFTP) y pierde la
-  base en cada reinicio, así que no sirve para este uso.
+## 3. Límites del plan gratuito
+
+- **Se duerme**: tras 15 minutos sin visitas el servicio se suspende; la siguiente visita tarda cerca de un minuto.
+- **Sin disco**: la base SQLite se borra en cada suspensión, reinicio o despliegue. Se pierden los pedidos, los usuarios
+  creados en la aplicación y los datos cargados a mano. Solo se conserva el administrador de `APP_USER` / `APP_PASSWORD`, y
+  con `CARGAR_DEMO=1` vuelven los datos de ejemplo.
+- **Uso adecuado**: demostraciones y pruebas de flujo en una sola sesión. No para pedidos reales.
+
+## 4. Pasar a producción con SFTP
+
+1. En `render.yaml` cambia el servicio así:
+
+   ```yaml
+       plan: starter
+       envVars:
+         - key: PYTHON_VERSION
+           value: 3.12.7
+         - key: SFTP_HABILITADO
+           value: "1"
+         - key: CARGAR_DEMO
+           value: "0"
+         - key: PEDIDOS_DB
+           value: /var/data/pedidos.db
+         - key: APP_USER
+           sync: false
+         - key: APP_PASSWORD
+           sync: false
+         - key: SFTP_PASSWORD     # contraseña del SFTP de SAP (vacía si se usa llave)
+           sync: false
+       disk:
+         name: datos
+         mountPath: /var/data
+         sizeGB: 1
+   ```
+
+2. Si el servicio ya existe, cambia también el tipo de instancia en el panel de Render (**Settings → Instance Type**):
+   en un servicio existente Render conserva el plan que ya tiene aunque cambie `render.yaml`.
+3. Entra con el administrador, ve a **Intercambio con SAP**, elige el medio **SFTP**, captura servidor, puerto, usuario,
+   rutas y minutos de lectura, guarda y pulsa **Probar conexión**. La contraseña puede quedar vacía: se toma de
+   `SFTP_PASSWORD`.
+
+Lo que hay que saber en producción:
+
 - **Una sola instancia**: el disco y el programador de lecturas exigen una instancia. No actives autoescalado.
-- **Reinicio en cada despliegue**: con disco, el servicio se detiene unos segundos al desplegar. Las lecturas pendientes se
-  hacen al volver.
 - **Acceso al SFTP de SAP**: si el SFTP filtra por IP, pide que autoricen las direcciones IP de salida del servicio
   (consulta en el panel de Render cuáles son para tu región). Verifica también que el puerto del SFTP sea alcanzable desde internet.
 - **Llave privada**: si el SFTP usa llave, súbela como *Secret File* en Render y escribe su ruta
   (`/etc/secrets/<nombre>`) en «Llave privada».
-- **Huella del servidor**: tras la primera conexión correcta, conviene desactivar «Aceptar servidores sin huella registrada»
-  solo si registras la huella en el servidor; en Render no hay `known_hosts` persistente, así que por ahora déjalo activado.
-- **Respaldo**: revisa en la documentación de Render qué copias hace del disco y, además, guarda una copia de
-  `pedidos.db` periódicamente.
+- **Huella del servidor**: en Render no hay `known_hosts` persistente; deja activado «Aceptar servidores sin huella registrada».
+- **Respaldo**: guarda una copia de `pedidos.db` periódicamente.

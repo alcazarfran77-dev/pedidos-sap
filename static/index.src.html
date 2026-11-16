@@ -373,7 +373,9 @@ const EN = {
 "Administrador":"Administrator","Ventas":"Sales","Cliente":"Customer","cliente {0}":"customer {0}","Cerrar sesión":"Sign out","Modo sin servidor":"Serverless mode","Datos en este navegador; archivos a mano; sin usuarios":"Data in this browser; files by hand; no users",
 "Clientes":"Customers","Inventario por almacén":"Inventory by warehouse","Lista de precios":"Price list","Material del cliente → SAP":"Customer material → SAP","Almacenes":"Warehouses","Estatus de pedidos":"Order status","Pedidos de clientes":"Customer orders",
 "Borrador":"Draft","Enviado a SAP":"Sent to SAP","Creado en SAP":"Created in SAP","En surtido":"Picking","Embarcado":"Shipped","Entregado":"Delivered","Facturado":"Invoiced","Rechazado":"Rejected","Bloqueado":"Blocked","Cancelado":"Cancelled","Todos":"All","Con incidencia":"With issues",
-"Sin servidor no hay conexión SFTP: descarga o copia este archivo y deposítalo en la carpeta de entrada de SAP.":"Without a server there is no SFTP connection: download or copy this file and drop it in SAP's inbound folder.",
+"No hay conexión SFTP activa: descarga o copia este archivo y deposítalo en la carpeta de entrada de SAP.":"There is no active SFTP connection: download or copy this file and drop it in SAP's inbound folder.",
+"SFTP desactivado":"SFTP disabled","Carga los archivos de SAP en «Intercambio con SAP» o carga datos de demostración para probar.":"Upload the SAP files under “SAP exchange” or load demo data to try it out.",
+"El SFTP está desactivado en este servidor. Carga aquí los archivos que SAP genera; el JSON de cada pedido enviado se descarga desde el monitor con «Ver JSON para SAP».":"SFTP is disabled on this server. Upload the files SAP generates here; download the JSON of each sent order from the monitor with “View JSON for SAP”.",
 "Documento JSON del pedido para SAP.":"JSON order document for SAP.","Copiar":"Copy","Descargar archivo":"Download file","Cerrar":"Close",
 "Datos de demostración.":"Demo data.","Clientes, materiales y pedidos ficticios de Canadá para probar el flujo. Carga tus archivos de SAP en «Intercambio con SAP».":"Fictional Canadian customers, materials and orders to try the flow. Load your SAP files under “SAP exchange”.",
 "Vaciar datos":"Clear data","Sin datos maestros.":"No master data.","Configura el SFTP en «Intercambio con SAP» o carga datos de demostración para probar.":"Set up the SFTP under “SAP exchange” or load demo data to try it out.","Cargar datos de demostración":"Load demo data",
@@ -459,7 +461,9 @@ const MSG = {
   e_pw_corta:["La contraseña debe tener al menos 8 caracteres","The password must be at least 8 characters"],
   e_auto_admin:["No puedes quitarte a ti mismo el perfil de administrador ni desactivarte","You cannot remove your own administrator role or deactivate yourself"],
   e_auto_borrar:["No puedes eliminar tu propio usuario","You cannot delete your own user"], e_ya_admin:["La aplicación ya tiene administrador","The application already has an administrator"],
-  e_sesion_fin:["Tu sesión terminó. Entra de nuevo.","Your session ended. Sign in again."]};
+  e_sesion_fin:["Tu sesión terminó. Entra de nuevo.","Your session ended. Sign in again."],
+  h_archivo_manual:["Archivo {0} generado; súbelo a SAP a mano (SFTP desactivado)","File {0} generated; upload it to SAP by hand (SFTP disabled)"],
+  e_sftp_off:["El SFTP está desactivado en este servidor (SFTP_HABILITADO=0)","SFTP is disabled on this server (SFTP_HABILITADO=0)"]};
 function tm(m) { m = String(m ?? ""); if (m[0] !== "@") return m; const ps = m.slice(1).split("\x1f"), d = MSG[ps.shift()]; if (!d) return m;
   const tpl = d[LANG === "es" ? 0 : 1], n = (tpl.match(/\{\d\}/g) || []).length;
   if (n && ps.length > n) ps.splice(n - 1, ps.length, ps.slice(n - 1).join("\x1f"));
@@ -480,6 +484,7 @@ const VISTAS = [["pedidos","Monitor de pedidos"],["captura","Capturar pedido"],[
 const PERFIL = {admin:"Administrador", ventas:"Ventas", cliente:"Cliente"};
 const nomTipo = k => NOM_TIPO[k] ? t(NOM_TIPO[k]) : k === "demo" ? t("Demostración") : k;
 const rol = () => S.modo === "servidor" && S.usuario ? S.usuario.rol : "admin";
+const conSftp = () => S.modo === "servidor" && S.sftp !== false;
 const vistasVisibles = () => VISTAS.filter(([k]) => S.modo !== "servidor" ? k !== "usuarios" : rol() === "admin" || (rol() === "ventas" ? !["sap","usuarios"].includes(k) : ["pedidos","captura","recepcion","inventario"].includes(k)));
 let vista = "pedidos", filtro = {est:"", q:""}, abierto = null, tabM = "clientes", qInv = "", cap = null, prevTimer = null, recRes = [], usuarios = [], usrEd = null;
 
@@ -491,7 +496,7 @@ async function descargar(nombre, texto) {
 function modal(html) { const v = $("#velo"); v.innerHTML = `<div class="panel" role="dialog" aria-modal="true">${html}</div>`; v.hidden = false; }
 function cerrarModal() { $("#velo").hidden = true; $("#velo").innerHTML = ""; }
 function verJson(p, recien) { const txt = JSON.stringify(E.jsonSap(p), null, 2), nom = p.archivo_sap || E.nombreArchivoSap(p);
-  modal(`<h2>${esc(nom)}</h2><p class="mute">${recien && S.modo === "local" ? t("Sin servidor no hay conexión SFTP: descarga o copia este archivo y deposítalo en la carpeta de entrada de SAP.") : t("Documento JSON del pedido para SAP.")}</p>
+  modal(`<h2>${esc(nom)}</h2><p class="mute">${recien && !conSftp() ? t("No hay conexión SFTP activa: descarga o copia este archivo y deposítalo en la carpeta de entrada de SAP.") : t("Documento JSON del pedido para SAP.")}</p>
   <textarea id="json-txt" readonly style="min-height:300px">${esc(txt)}</textarea>
   <div class="fila" style="margin-top:12px;justify-content:flex-end"><button data-act="copiar-json">${t("Copiar")}</button><button data-act="bajar-json" data-nom="${esc(nom)}">${t("Descargar archivo")}</button><button class="pri" data-act="cerrar-modal">${t("Cerrar")}</button></div>`); }
 const btnIdioma = () => `<button class="min" data-act="idioma" lang="${LANG === "es" ? "en" : "es"}">${LANG === "es" ? "English" : "Español"}</button>`;
@@ -500,12 +505,12 @@ function pintarMenu() {
   const n = {pedidos:S.pedidos.length, inventario:new Set(S.inventario.map(r => r.MATNR)).size, maestros:new Set(S.clientes.map(r => r.KUNNR)).size};
   $("#menu").innerHTML = `<div class="marca">${t("Pedidos SAP")}</div><div class="sub">${t("Levantamiento, inventario y envío")}</div>` +
     vistasVisibles().map(([k, tt]) => `<a href="#${k}" class="${k === vista ? "on" : ""}">${t(tt)}${n[k] != null ? `<span class="n">${n[k]}</span>` : ""}</a>`).join("") +
-    (S.modo === "servidor" ? `<div class="modo"><b>${esc(S.usuario.nombre || S.usuario.usuario)}</b>${t(PERFIL[S.usuario.rol])}${S.usuario.KUNNR ? " · " + t("cliente {0}", esc(S.usuario.KUNNR)) : ""}<br>${btnIdioma()} <button class="min" data-act="salir">${t("Cerrar sesión")}</button></div>`
+    (S.modo === "servidor" ? `<div class="modo"><b>${esc(S.usuario.nombre || S.usuario.usuario)}</b>${t(PERFIL[S.usuario.rol])}${S.usuario.KUNNR ? " · " + t("cliente {0}", esc(S.usuario.KUNNR)) : ""}${!conSftp() && rol() !== "cliente" ? " · " + t("SFTP desactivado") : ""}<br>${btnIdioma()} <button class="min" data-act="salir">${t("Cerrar sesión")}</button></div>`
       : `<div class="modo"><b>${t("Modo sin servidor")}</b>${t("Datos en este navegador; archivos a mano; sin usuarios")}<br>${btnIdioma()}</div>`);
 }
 function bannerDemo() {
   if (S.modo === "local" && S.demo) return `<div class="demo"><span><b>${t("Datos de demostración.")}</b> ${t("Clientes, materiales y pedidos ficticios de Canadá para probar el flujo. Carga tus archivos de SAP en «Intercambio con SAP».")}</span><button class="min" data-act="vaciar">${t("Vaciar datos")}</button></div>`;
-  if (S.modo === "servidor" && rol() === "admin" && !S.clientes.length && !S.inventario.length) return `<div class="demo"><span><b>${t("Sin datos maestros.")}</b> ${t("Configura el SFTP en «Intercambio con SAP» o carga datos de demostración para probar.")}</span><button class="min" data-act="demo">${t("Cargar datos de demostración")}</button></div>`;
+  if (S.modo === "servidor" && rol() === "admin" && !S.clientes.length && !S.inventario.length) return `<div class="demo"><span><b>${t("Sin datos maestros.")}</b> ${conSftp() ? t("Configura el SFTP en «Intercambio con SAP» o carga datos de demostración para probar.") : t("Carga los archivos de SAP en «Intercambio con SAP» o carga datos de demostración para probar.")}</span><button class="min" data-act="demo">${t("Cargar datos de demostración")}</button></div>`;
   return ""; }
 const cab = (tt, d, extra = "") => `<div class="cab"><div><h1>${tt}</h1><p>${d}</p></div><div class="fila">${extra}</div></div>`;
 const notas = (errs, avs) => errs.map(m => `<div class="nota err">${esc(tm(m))}</div>`).join("") + avs.map(m => `<div class="nota">${esc(tm(m))}</div>`).join("");
@@ -599,14 +604,14 @@ async function guardarCaptura(enviar) {
     if (cap.id) { p = await B.recalcular(cap.id, ent); if (enviar) p = await B.enviar(cap.id); }
     else p = (await B.crear([ent], null, enviar))[0];
     if (B === Api) await B.estado(); capNueva(); abierto = p.id; location.hash = "pedidos"; vista = "pedidos";
-  }, () => enviar ? (S.modo === "servidor" ? t("{0} enviado a SAP: {1}", p.id, p.archivo_sap) : t("{0} listo para SAP", p.id)) : t("{0} guardado como borrador", p.id));
-  if (p && enviar && S.modo === "local") verJson(p, true);
+  }, () => enviar ? (conSftp() ? t("{0} enviado a SAP: {1}", p.id, p.archivo_sap) : t("{0} listo para SAP", p.id)) : t("{0} guardado como borrador", p.id));
+  if (p && enviar && !conSftp() && rol() !== "cliente") verJson(S.pedidos.find(x => x.id === p.id) || p, true);
 }
 
 /* ---- Recepción por archivo ---- */
 function vRecepcion() {
   return cab(t("Recibir pedidos por archivo"), t("Carga archivos JSON o CSV con cliente, pedido del cliente, material, cantidad y dirección de entrega. Cada pedido se valida y queda como borrador en el monitor.") +
-      (S.modo === "servidor" ? " " + t("Los archivos depositados en la ruta de pedidos del SFTP entran solos.") : "")) +
+      (conSftp() ? " " + t("Los archivos depositados en la ruta de pedidos del SFTP entran solos.") : "")) +
   `<div class="panel"><h2>${t("Desde archivo")}</h2><div class="fila"><input type="file" id="f-ped" accept=".json,.csv,.txt" multiple style="max-width:420px" aria-label="${t("Archivos de pedidos")}"><button class="pri" data-act="subir-ped">${t("Procesar archivos")}</button></div></div>
   <div class="panel"><h2>${t("Pegando el contenido")}</h2><textarea id="t-ped" placeholder="customer,customer_po,material,quantity,delivery_address&#10;100020,QL-PO-7001,10000310,500,100021" aria-label="${t("Contenido JSON o CSV")}"></textarea>
     <div class="fila" style="margin-top:10px"><button data-act="pegar-ped">${t("Procesar contenido")}</button>${rol() === "cliente" ? "" : `<button data-act="ir" data-v="formatos">${t("Ver formato esperado")}</button>`}</div></div>
@@ -649,10 +654,10 @@ function vMaestros() {
 
 /* ---- Intercambio con SAP ---- */
 function vSap() {
-  const c = S.config, srv = S.modo === "servidor", cx = c.conexion;
+  const c = S.config, srv = conSftp(), cx = c.conexion;
   const campo = (ruta, et, tipo = "text", extra = "") => { const v = ruta.split(".").reduce((o, k) => o[k], c);
     return tipo === "checkbox" ? `<label class="chk"><input type="checkbox" data-cfg="${ruta}" ${v ? "checked" : ""}>${t(et)}</label>` : `<label>${t(et)}<input type="${tipo}" data-cfg="${ruta}" value="${esc(v)}" ${extra}></label>`; };
-  return cab(t("Intercambio con SAP"), srv ? t("La aplicación lee del SFTP los datos maestros, el inventario, los precios y los estatus cada cierto tiempo, y deposita ahí el JSON de cada pedido enviado.")
+  return cab(t("Intercambio con SAP"), S.modo === "servidor" && !srv ? t("El SFTP está desactivado en este servidor. Carga aquí los archivos que SAP genera; el JSON de cada pedido enviado se descarga desde el monitor con «Ver JSON para SAP».") : srv ? t("La aplicación lee del SFTP los datos maestros, el inventario, los precios y los estatus cada cierto tiempo, y deposita ahí el JSON de cada pedido enviado.")
       : t("Esta versión corre solo en tu navegador y no puede conectarse a un SFTP. Carga aquí los archivos que SAP genera y descarga el JSON de cada pedido. La versión con servidor hace ambos pasos sola.")) +
   (srv ? `<div class="panel"><h2>${t("Conexión")}</h2><div class="rej">
       <label>${t("Medio")}<select data-cfg="conexion.modo"><option value="sftp" ${cx.modo === "sftp" ? "selected" : ""}>SFTP</option><option value="carpeta" ${cx.modo === "carpeta" ? "selected" : ""}>${t("Carpeta local o compartida")}</option></select></label>
@@ -761,7 +766,7 @@ document.addEventListener("click", async ev => {
   else if (a === "ver-json") verJson(S.pedidos.find(p => p.id === id));
   else if (a === "copiar-json") { try { await navigator.clipboard.writeText($("#json-txt").value); tost(t("JSON copiado")); } catch (e) { $("#json-txt").select(); tost(t("Selecciona el texto y cópialo con Ctrl+C"), true); } }
   else if (a === "bajar-json") descargar(el.dataset.nom, $("#json-txt").value);
-  else if (a === "enviar") { const p = await hacer(() => B.enviar(id), r => S.modo === "servidor" ? t("{0} enviado a SAP: {1}", id, r.archivo_sap) : t("{0} listo para SAP", id)); if (p && S.modo === "local") verJson(S.pedidos.find(x => x.id === id), true); }
+  else if (a === "enviar") { const p = await hacer(() => B.enviar(id), r => conSftp() ? t("{0} enviado a SAP: {1}", id, r.archivo_sap) : t("{0} listo para SAP", id)); if (p && !conSftp() && rol() !== "cliente") verJson(S.pedidos.find(x => x.id === id), true); }
   else if (a === "recalcular") hacer(() => B.recalcular(id), t("{0} recalculado", id));
   else if (a === "editar") { const p = S.pedidos.find(x => x.id === id), e = p.entrada, esDest = e.DIRECCION === "" || S.clientes.some(r => r.KUNNR === p.KUNNR && r.KUNWE === e.DIRECCION);
     cap = {id, KUNNR:p.KUNNR, BSTKD:e.BSTKD, dirSel:esDest ? e.DIRECCION : "__otra__", dirTxt:esDest ? "" : e.DIRECCION, pos:p.posiciones.map((x, i) => ({MATERIAL:e.posiciones[i].MATERIAL ?? "", CANTIDAD:e.posiciones[i].CANTIDAD ?? "", WERKS:x.forzado ? x.WERKS : ""})), prev:null};

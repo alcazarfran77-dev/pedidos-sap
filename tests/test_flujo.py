@@ -210,5 +210,22 @@ del os.environ["APP_USER"], os.environ["APP_PASSWORD"]
 with cliente_http() as c:
     ok(c.get("/").status_code == 503 and c.get("/healthz").status_code == 200, "en Render sin APP_USER/APP_PASSWORD la aplicación no abre")
 del os.environ["RENDER"]
+# 9) SFTP desactivado (plan gratuito de Render)
+os.environ["SFTP_HABILITADO"] = "0"
+antes = sorted(os.listdir(RAIZ / "salida/pedidos"))
+nuevo = sv.crear([{"KUNNR": "100050", "BSTKD": "SIN-SFTP-1", "DIRECCION": "", "posiciones": [{"MATERIAL": "10000420", "CANTIDAD": 5}]}])[0]
+env2 = sv.enviar(nuevo["id"])
+ok(env2["estatus"] == "ENVIADO_SAP" and "h_archivo_manual" in env2["historial"][-1]["texto"], "sin SFTP: el pedido queda listo para SAP con su JSON")
+ok(sorted(os.listdir(RAIZ / "salida/pedidos")) == antes, "sin SFTP: no se deposita ningún archivo")
+for fn in (lambda: sv.sincronizar("estatus"), sv.probar_conexion):
+    try: fn(); ok(False, "debió rechazarse")
+    except ValueError as e: ok("e_sftp_off" in str(e), "sin SFTP: lectura y prueba de conexión rechazadas")
+ok(sv.estado()["sftp"] is False and sv.importar("estatus", "s.json", '[{"ID_PEDIDO": "%s", "STATUS": "CREADO", "FECHA": "2099-02-01T10:00:00"}]' % nuevo["id"]).startswith("@m_estatus"), "sin SFTP: los estatus se cargan a mano")
+with cliente_http() as c:
+    entrar(c, "fran", "clave-larga-1")
+    ok(c.post("/api/sync/estatus").status_code == 400 and c.get(f"/api/pedidos/{nuevo['id']}/json").json()["BSTKD"] == "SIN-SFTP-1", "sin SFTP: la API rechaza leer y entrega el JSON para descargar")
+del os.environ["SFTP_HABILITADO"]
+ok(sv.cargar_demo_si_vacio() is False, "CARGAR_DEMO no toca una base con datos")
+
 print("\nTODAS LAS PRUEBAS PASARON")
 shutil.rmtree(TMP, ignore_errors=True)

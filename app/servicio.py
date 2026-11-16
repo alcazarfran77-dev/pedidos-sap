@@ -8,6 +8,17 @@ _con = None
 _ultima = {}  # tipo -> epoch de la última sincronización
 
 
+def sftp_habilitado():
+    """SFTP_HABILITADO=0 apaga toda conexión con SAP: sin lecturas programadas y sin depositar archivos.
+    Los datos de SAP se cargan a mano y el JSON de cada pedido se descarga desde la pantalla."""
+    return os.environ.get("SFTP_HABILITADO", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _exigir_sftp():
+    if not sftp_habilitado():
+        raise ValueError(core.M("e_sftp_off"))
+
+
 def con():
     global _con
     if _con is None:
@@ -44,6 +55,7 @@ def estado(u=None):
         st["config"]["conexion"]["password"] = "********" if st["config"]["conexion"]["password"] else ""
         st["bitacora"] = db.bitacora(con())
         st["usuario"] = u
+        st["sftp"] = sftp_habilitado()
         if u and u["rol"] != "admin":
             st["bitacora"] = []
             st["config"] = {k: v for k, v in st["config"].items() if k != "conexion"}
@@ -106,6 +118,9 @@ def _enviar(st, p, tr=None):
     if p["estatus"] != "BORRADOR":
         raise ValueError(core.M("e_ya_enviado"))
     nombre = core.nombre_archivo_sap(p)
+    if not sftp_habilitado():
+        core.marcar_enviado(p, nombre, core.M("h_archivo_manual", nombre))
+        return
     datos = json.dumps(core.json_sap(p), ensure_ascii=False, indent=2).encode("utf-8")
     cfg = _cfg_efectiva(st["config"])
     if tr:
@@ -225,7 +240,19 @@ def cargar_demo():
         con().commit()
 
 
+def cargar_demo_si_vacio():
+    """CARGAR_DEMO=1: si la base está vacía al arrancar (por ejemplo, tras reiniciar en un plan sin disco), carga los datos de ejemplo."""
+    if os.environ.get("CARGAR_DEMO", "").strip().lower() not in ("1", "true", "si", "sí", "yes"):
+        return False
+    with CANDADO:
+        if con().execute("SELECT 1 FROM clientes LIMIT 1").fetchone():
+            return False
+    cargar_demo()
+    return True
+
+
 def probar_conexion():
+    _exigir_sftp()
     with CANDADO:
         cfg = _cfg_efectiva(db.cargar(con())["config"])
     with transporte.abrir(cfg) as t:
@@ -235,6 +262,7 @@ def probar_conexion():
 
 def sincronizar(tipo):
     """Lee del SFTP los archivos nuevos de un tipo y los procesa en orden de antigüedad."""
+    _exigir_sftp()
     with CANDADO:
         cfg = _cfg_efectiva(db.cargar(con())["config"])
         ruta, n = cfg["rutas"][tipo], 0
@@ -312,7 +340,7 @@ def _publico(r):
 def _buscar(usuario):
     env = admin_entorno()
     if env and usuario == env[0]:
-        return {"usuario": usuario, "nombre": "Administrator", "rol": "admin", "KUNNR": "", "activo": True}
+        return {"usuario": usuario, "nombre": "", "rol": "admin", "KUNNR": "", "activo": True}
     r = con().execute("SELECT * FROM usuarios WHERE usuario=?", (usuario,)).fetchone()
     return _publico(r) if r and r["activo"] else None
 
